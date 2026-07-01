@@ -18,10 +18,17 @@ export default function ImageZoom({ src, alt, bg }: { src?: string; alt: string;
           position: 'relative'
         }}
       >
-        {src ? (
+{src ? (
           <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <span style={{ fontSize: 13, color: 'var(--text-muted)', opacity: 0.4 }}>{alt}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, opacity: 0.25 }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No preview available</span>
+          </div>
         )}
         {src && (
           <div style={{

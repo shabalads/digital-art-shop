@@ -34,8 +34,20 @@ export default function HomeContent() {
   const [loading, setLoading] = useState(false);
   const shopRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+const [bestsellers, setBestsellers] = useState<Product[]>(bestsellerProducts);
 
-  const bestsellers = bestsellerProducts;
+  useEffect(() => {
+    async function fetchBestsellers() {
+      try {
+        const res = await fetch('/api/products?badge=Bestseller&limit=10');
+        const data = await res.json();
+        if (data.products?.length > 0) setBestsellers(data.products);
+      } catch {
+        // keep mock fallback
+      }
+    }
+    fetchBestsellers();
+  }, []);
   const recentlyAdded = [...allProducts].reverse().slice(0, 6);
 
   useEffect(() => {

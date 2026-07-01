@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   const id = searchParams.get('id');
   const category = searchParams.get('category');
   const q = searchParams.get('q');
+  const badge = searchParams.get('badge');
   const limit = parseInt(searchParams.get('limit') || '50');
 
   if (id) {
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
 
   if (category && category !== 'all') query = query.eq('category', category.toLowerCase());
   if (q) query = query.ilike('title', `%${q}%`);
+  if (badge) query = query.eq('badge', badge);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

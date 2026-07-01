@@ -2,8 +2,9 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { mockProducts } from '../../../data/products';
+import { Product } from '../../../data/products';
 import ProductCard from '../../../components/ProductCard';
 import CartToast from '../../../components/CartToast';
 import ImageZoom from '../../../components/ImageZoom';
@@ -12,11 +13,53 @@ import Link from 'next/link';
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
-  const product = mockProducts.find(p => p.id === id);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [related, setRelated] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [type, setType] = useState<'digital' | 'physical'>('digital');
   const [adding, setAdding] = useState(false);
   const [toast, setToast] = useState(false);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/products?id=${id}`);
+        const data = await res.json();
+        if (data.products?.[0]) {
+          const p = data.products[0];
+          setProduct(p);
+          // fetch related
+          const relRes = await fetch(`/api/products?category=${p.category}&limit=5`);
+          const relData = await relRes.json();
+          setRelated((relData.products || []).filter((r: Product) => r.id !== id).slice(0, 4));
+        } else {
+          // fallback to mock
+          const mock = mockProducts.find(p => p.id === id);
+          if (mock) {
+            setProduct(mock);
+            setRelated(mockProducts.filter(p => p.category === mock.category && p.id !== id).slice(0, 4));
+          }
+        }
+      } catch {
+        const mock = mockProducts.find(p => p.id === id);
+        if (mock) {
+          setProduct(mock);
+          setRelated(mockProducts.filter(p => p.category === mock.category && p.id !== id).slice(0, 4));
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [id]);
+
+  if (loading) return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Loading…</div>
+    </div>
+  );
 
   if (!product) return (
     <div style={{ padding: '80px 40px', textAlign: 'center' }}>
@@ -26,7 +69,6 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   );
 
   const price = type === 'digital' ? product.price_digital : product.price_physical;
-  const related = mockProducts.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4);
 
   function addToCart() {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
