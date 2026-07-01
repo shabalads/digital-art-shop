@@ -6,6 +6,19 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Product } from '../data/products';
 
+function cleanProductTitle(raw: string): string {
+  if (!raw) return '';
+  const separators = [' | ', ' – ', ' - ', ', '];
+  let cleaned = raw;
+  for (const sep of separators) {
+    const idx = cleaned.indexOf(sep);
+    if (idx > 20) { cleaned = cleaned.substring(0, idx).trim(); break; }
+  }
+  cleaned = cleaned.replace(/\s*(Print|Poster|Wall Art|Printable|Digital|Download|Art Print)$/i, '').trim();
+  if (cleaned.length > 50) cleaned = cleaned.substring(0, 50).split(' ').slice(0, -1).join(' ');
+  return cleaned;
+}
+
 export default function ProductCard({ product }: { product: Product }) {
   const [hovered, setHovered] = useState(false);
 
@@ -60,10 +73,13 @@ export default function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
+        
+
         {/* Info */}
         <div style={{ padding: '12px 14px 14px' }}>
-          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>
-            {product.title}
+<div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>
+            {cleanProductTitle(product.title)}
+            <span style={{ display: 'none' }}>{product.title}</span>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'capitalize' }}>
             {product.category}

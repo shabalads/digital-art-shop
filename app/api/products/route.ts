@@ -22,12 +22,21 @@ export async function GET(req: NextRequest) {
     .from('products').select('*').eq('active', true)
     .order('created_at', { ascending: false }).limit(limit);
 
-  if (category && category !== 'all') query = query.eq('category', category.toLowerCase());
-  if (q) query = query.ilike('title', `%${q}%`);
+if (category && category !== 'all') query = query.eq('category', category.toLowerCase());
   if (badge) query = query.eq('badge', badge);
+  if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // If no results and there was a search query, try fuzzy match via RPC
+  if (q && (!data || data.length === 0)) {
+    const { data: fuzzyData } = await supabaseAdmin.rpc('search_products_fuzzy', { search_term: q, result_limit: limit });
+    if (fuzzyData && fuzzyData.length > 0) {
+      return NextResponse.json({ products: fuzzyData });
+    }
+  }
+
   return NextResponse.json({ products: data });
 }
 

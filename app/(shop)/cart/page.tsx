@@ -7,10 +7,12 @@ import Link from 'next/link';
 import { useIsMobile } from '../../components/useIsMobile';
 
 type CartItem = {
+  cartId: string;
   id: string;
   title: string;
   price: number;
   type: 'digital' | 'physical';
+  size?: string | null;
   quantity: number;
   bg_color: string;
   image_url?: string;
@@ -37,13 +39,13 @@ export default function CartPage() {
     setTimeout(() => { save([]); setCleared(false); }, 300);
   }
 
-  function remove(id: string, type: string) {
-    save(cart.filter(i => !(i.id === id && i.type === type)));
+  function remove(cartId: string) {
+    save(cart.filter(i => i.cartId !== cartId));
   }
 
-  function updateQty(id: string, type: string, qty: number) {
-    if (qty < 1) return remove(id, type);
-    save(cart.map(i => i.id === id && i.type === type ? { ...i, quantity: qty } : i));
+  function updateQty(cartId: string, qty: number) {
+    if (qty < 1) return remove(cartId);
+    save(cart.map(i => i.cartId === cartId ? { ...i, quantity: qty } : i));
   }
 
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -83,34 +85,56 @@ export default function CartPage() {
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: isMobile ? 32 : 48, alignItems: 'start' }}>
         <div>
           {cart.map((item, i) => (
-            <div key={`${item.id}-${item.type}`} style={{
-              display: 'grid', gridTemplateColumns: '72px 1fr auto', gap: 20, alignItems: 'center',
+            <div key={item.cartId || `${item.id}-${item.type}-${i}`} style={{
+              display: 'grid', gridTemplateColumns: '80px 1fr auto', gap: 20, alignItems: 'center',
               padding: '20px 0', borderBottom: i < cart.length - 1 ? '0.5px solid var(--border)' : 'none'
             }}>
-              <div style={{ width: 72, height: 96, borderRadius: 8, background: item.bg_color, border: '0.5px solid var(--border-card)' }} />
+              {/* Thumbnail */}
+              <div style={{ width: 80, height: 100, borderRadius: 8, background: item.bg_color, border: '0.5px solid var(--border-card)', overflow: 'hidden', flexShrink: 0 }}>
+                {item.image_url ? (
+                  <img src={item.image_url} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : null}
+              </div>
+
+              {/* Info */}
               <div>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{item.title}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, lineHeight: 1.3 }}>{item.title}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
                   {item.type === 'digital' ? '⬇ Digital download' : '◻ Printed & shipped'}
                 </div>
+                {item.type === 'physical' && item.size && (
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8, background: 'var(--bg-pill)', display: 'inline-block', padding: '2px 10px', borderRadius: 4 }}>
+                    {item.size}
+                  </div>
+                )}
+                {item.type === 'digital' && (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, fontStyle: 'italic' }}>
+                    One-time purchase · all sizes included
+                  </div>
+                )}
                 {item.type === 'physical' ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <button onClick={() => updateQty(item.id, item.type, item.quantity - 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '0.5px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                    <button onClick={() => updateQty(item.cartId, item.quantity - 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '0.5px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
                     <span style={{ fontSize: 14, fontWeight: 500, minWidth: 20, textAlign: 'center' }}>{item.quantity}</span>
-                    <button onClick={() => updateQty(item.id, item.type, item.quantity + 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '0.5px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    <button onClick={() => updateQty(item.cartId, item.quantity + 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '0.5px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                   </div>
                 ) : (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Single file license</div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-pill)', border: '0.5px solid var(--border)', borderRadius: 6, padding: '4px 12px' }}>Qty: 1</div>
+                  </div>
                 )}
               </div>
+
+              {/* Price + remove */}
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>${(item.price * item.quantity).toFixed(2)}</div>
-                <button onClick={() => remove(item.id, item.type)} style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>Remove</button>
+                <button onClick={() => remove(item.cartId)} style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>Remove</button>
               </div>
             </div>
           ))}
         </div>
 
+        {/* Summary */}
         <div style={{ background: 'white', border: '0.5px solid var(--border)', borderRadius: 14, padding: '28px', position: 'sticky', top: 80 }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 20 }}>Order summary</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 }}>

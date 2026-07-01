@@ -23,7 +23,7 @@ function mapEtsyRow(row: Record<string, string>) {
   const description = row['DESCRIPTION'] || row['Description'] || '';
   const imageUrl = row['IMAGE1'] || row['Image1'] || row['IMAGE_URL'] || row['Image URL'] || '';
   const price = parseFloat(row['PRICE'] || row['Price'] || '3.99') || 3.99;
-  const active = (row['STATUS'] || row['Status'] || '').toLowerCase() === 'active';
+  const active = true; // default all imported listings to activel
 
   return {
     title,
