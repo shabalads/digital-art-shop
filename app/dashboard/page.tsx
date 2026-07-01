@@ -1,6 +1,19 @@
 // app/dashboard/page.tsx
 
 import Link from 'next/link';
+import { SignOutButton } from '@clerk/nextjs';
+
+function SignOutButtonInline() {
+  return (
+    <SignOutButton>
+      <button style={{
+        background: 'none', border: '0.5px solid var(--border)',
+        borderRadius: 8, padding: '6px 14px', fontSize: 13,
+        color: 'var(--text-muted)', cursor: 'pointer'
+      }}>Log out</button>
+    </SignOutButton>
+  );
+}
 
 export default function DashboardPage() {
   return (
@@ -49,13 +62,10 @@ export default function DashboardPage() {
         <Link href="/dashboard/orders" style={{ fontSize: 13, color: 'var(--accent-soft)' }}>Latest orders</Link>
         <Link href="/dashboard/import" style={{ fontSize: 13, color: 'var(--accent-soft)' }}>Import CSV</Link>
         <Link href="/" style={{ fontSize: 13, color: 'var(--accent-soft)' }}>View homepage</Link>
-        <form action="/api/auth/logout" method="POST" style={{ marginLeft: 'auto' }}>
-          <button type="submit" style={{
-            background: 'none', border: '0.5px solid var(--border)',
-            borderRadius: 8, padding: '6px 14px', fontSize: 13,
-            color: 'var(--text-muted)', cursor: 'pointer'
-          }}>Log out</button>
-        </form>
+<div style={{ marginLeft: 'auto' }}>
+          {/* @ts-ignore */}
+          <SignOutButtonInline />
+        </div>
       </div>
     </div>
   );

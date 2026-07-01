@@ -5,27 +5,26 @@ import { supabaseAdmin } from '../../lib/supabase';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
   const category = searchParams.get('category');
   const q = searchParams.get('q');
   const limit = parseInt(searchParams.get('limit') || '50');
 
+  if (id) {
+    const { data, error } = await supabaseAdmin
+      .from('products').select('*').eq('id', id).single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ products: [data] });
+  }
+
   let query = supabaseAdmin
-    .from('products')
-    .select('*')
-    .eq('active', true)
-    .order('created_at', { ascending: false })
-    .limit(limit);
+    .from('products').select('*').eq('active', true)
+    .order('created_at', { ascending: false }).limit(limit);
 
-  if (category && category !== 'all') {
-    query = query.eq('category', category.toLowerCase());
-  }
-
-  if (q) {
-    query = query.ilike('title', `%${q}%`);
-  }
+  if (category && category !== 'all') query = query.eq('category', category.toLowerCase());
+  if (q) query = query.ilike('title', `%${q}%`);
 
   const { data, error } = await query;
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ products: data });
 }
@@ -56,4 +55,14 @@ export async function PATCH(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ product: data });
+}
+
+export async function DELETE(req: NextRequest) {
+  const id = new URL(req.url).searchParams.get('id');
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+
+  const { error } = await supabaseAdmin.from('products').delete().eq('id', id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

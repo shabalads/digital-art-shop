@@ -12,12 +12,10 @@ export default function SignUpPage() {
         </span>
       </Link>
       <SignUp
-        appearance={{
-          variables: {
+appearance={{
+variables: {
             colorPrimary: '#2C2420',
             colorBackground: '#FFFFFF',
-            colorInputBackground: '#FAF8F5',
-            colorInputText: '#1E1810',
             borderRadius: '10px',
             fontFamily: 'system-ui, sans-serif',
           },

@@ -2,10 +2,8 @@
 
 'use client';
 
-
 import { useState } from 'react';
 import Link from 'next/link';
-import Papa from 'papaparse';
 
 export default function ImportPage() {
   const [status, setStatus] = useState<string>('');
@@ -17,84 +15,40 @@ export default function ImportPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setStatus('Parsing CSV…');
+    setStatus('Uploading CSV and artwork files…');
     setDone(false);
     setProgress(0);
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        const rows = results.data as any[];
-        setTotal(rows.length);
-        setStatus(`Found ${rows.length} listings — importing…`);
+    const formData = new FormData();
+    formData.append('file', file);
 
-        let success = 0;
-        let failed = 0;
+    try {
+      const res = await fetch('/api/import', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
 
-        for (const row of rows) {
-          const product = mapEtsyRow(row);
-          try {
-            const res = await fetch('/api/products', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(product),
-            });
-            const data = await res.json();
-            if (data.product) success++;
-            else failed++;
-          } catch {
-            failed++;
-          }
-          setProgress(success + failed);
-        }
+      if (!res.ok) throw new Error(data.error || 'Import failed');
 
-        setStatus(`Done — ${success} imported, ${failed} failed.`);
-        setDone(true);
-      },
-    });
+      setTotal(data.total || 0);
+      setProgress(data.imported || 0);
+      setStatus(`Done — ${data.imported} imported, ${data.skipped} skipped.`);
+      setDone(true);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Import failed');
+    }
   }
-
-  function mapEtsyRow(row: any) {
-    const category = guessCategory(row['TITLE'] || row['Title'] || '');
-    const price = parseFloat(row['PRICE'] || row['Price'] || '3.99') || 3.99;
-
-    return {
-      title: row['TITLE'] || row['Title'] || 'Untitled',
-      description: row['DESCRIPTION'] || row['Description'] || '',
-      category,
-      price_digital: price,
-      price_physical: Math.max(price * 6, 24.99),
-      badge: '',
-      bg_color: randomBg(),
-      image_url: row['IMAGE1'] || row['Image1'] || '',
-      active: (row['STATUS'] || row['Status'] || '').toLowerCase() === 'active',
-    };
-  }
-
-  function guessCategory(title: string): string {
-    const t = title.toLowerCase();
-    if (t.includes('botanical') || t.includes('plant') || t.includes('leaf') || t.includes('floral') || t.includes('flower')) return 'botanical';
-    if (t.includes('quote') || t.includes('text') || t.includes('word') || t.includes('saying') || t.includes('typography')) return 'typography';
-    if (t.includes('photo') || t.includes('landscape') || t.includes('nature') || t.includes('sky')) return 'photography';
-    if (t.includes('vintage') || t.includes('retro') || t.includes('antique')) return 'vintage';
-    if (t.includes('minimal') || t.includes('simple') || t.includes('clean') || t.includes('line')) return 'minimal';
-    return 'abstract';
-  }
-
-  function randomBg(): string {
-    const bgs = ['#E8E2D8', '#D8E4DC', '#F0EBE3', '#E2E0EC', '#EDE8D0', '#E4E8EC', '#DCE8DC', '#EDE8E4', '#E8E4DC', '#DDE4E8'];
-    return bgs[Math.floor(Math.random() * bgs.length)];
-  }
-
-  const pct = total > 0 ? Math.round((progress / total) * 100) : 0;
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto', padding: '40px 32px' }}>
       <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block', marginBottom: 12 }}>← Dashboard</Link>
       <h1 style={{ fontSize: 24, fontWeight: 500, marginBottom: 8 }}>Import from Etsy CSV</h1>
-      <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 32 }}>
-        Download your listings CSV from Etsy → Shop Manager → Settings → Options → Download Data
+      <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20 }}>
+        Download your listings CSV from Etsy → Shop Manager → Settings → Options → Download Data.
+      </p>
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>
+        This import parses your CSV, downloads artwork images into Supabase Storage, and inserts products into your catalog.
       </p>
 
       <label style={{
@@ -113,13 +67,13 @@ export default function ImportPage() {
             <div style={{ background: 'var(--border)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
               <div style={{
                 background: 'var(--accent)', height: '100%',
-                width: `${pct}%`, transition: 'width 0.2s'
+                width: `${Math.round((progress / total) * 100)}%`, transition: 'width 0.2s'
               }} />
             </div>
           )}
           {total > 0 && (
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-              {progress} / {total} ({pct}%)
+              {progress} / {total}
             </p>
           )}
           {done && (

@@ -3,10 +3,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ClerkProvider } from '@clerk/nextjs';
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
+import ConditionalLayout from './components/ConditionalLayout';
 import ScrollToTop from './components/ScrollToTop';
-import PageWrapper from './components/PageWrapper';
 
 export const metadata: Metadata = {
   title: {
@@ -41,13 +39,11 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-return (
+  return (
     <ClerkProvider>
       <html lang="en">
         <body>
-          <Navbar />
-          <main><PageWrapper>{children}</PageWrapper></main>
-          <Footer />
+          <ConditionalLayout>{children}</ConditionalLayout>
           <ScrollToTop />
         </body>
       </html>

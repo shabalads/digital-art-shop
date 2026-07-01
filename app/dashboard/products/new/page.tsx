@@ -9,6 +9,7 @@ import { categories } from '../../../data/products';
 export default function NewProductPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -25,6 +26,19 @@ export default function NewProductPage() {
 
   function set(key: string, value: any) {
     setForm(f => ({ ...f, [key]: value }));
+  }
+
+  async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('productId', 'new');
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.path) set('digital_file_url', data.path);
+    setUploading(false);
   }
 
   async function save() {
@@ -91,9 +105,22 @@ export default function NewProductPage() {
             style={inputStyle} placeholder="https://..." />
         </Field>
 
-        <Field label="Digital file URL">
-          <input value={form.digital_file_url} onChange={e => set('digital_file_url', e.target.value)}
-            style={inputStyle} placeholder="https://... (Supabase storage URL)" />
+        <Field label="Digital file">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '8px 14px', border: '0.5px solid var(--border)', borderRadius: 8,
+              cursor: uploading ? 'not-allowed' : 'pointer', fontSize: 13,
+              color: 'var(--text-secondary)', width: 'fit-content',
+              opacity: uploading ? 0.6 : 1,
+            }}>
+              <input type="file" accept=".jpg,.jpeg,.png,.pdf,.zip,.ai,.svg" onChange={uploadFile}
+                disabled={uploading} style={{ display: 'none' }} />
+              {uploading ? 'Uploading…' : '↑ Upload file'}
+            </label>
+            <input value={form.digital_file_url} onChange={e => set('digital_file_url', e.target.value)}
+              style={inputStyle} placeholder="Storage path or https:// URL" />
+          </div>
         </Field>
 
         <Field label="Printful product ID">
