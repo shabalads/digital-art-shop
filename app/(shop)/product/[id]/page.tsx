@@ -36,11 +36,16 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [type, setType] = useState<'digital' | 'physical'>('digital');
+const [type, setType] = useState<'digital' | 'physical'>('digital');
+  const [activeImage, setActiveImage] = useState<string | undefined>(undefined);
   const [selectedSize, setSelectedSize] = useState(PHYSICAL_SIZES[1]); // default 8×10"
   const [adding, setAdding] = useState(false);
   const [toast, setToast] = useState(false);
   const isMobile = useIsMobile();
+
+useEffect(() => {
+    if (product?.image_url) setActiveImage(product.image_url);
+  }, [product]);
 
   useEffect(() => {
     async function load() {
@@ -119,7 +124,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     const existing = cart.find((i: any) => i.cartId === cartId);
     if (existing && type === 'digital') { setToast(true); return; }
     if (existing) existing.quantity += 1;
-    else cart.push({
+else cart.push({
       cartId,
       id: product!.id,
       title: product!.title,
@@ -128,8 +133,10 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       size: type === 'physical' ? selectedSize.label : null,
       quantity: 1,
       bg_color: product!.bg_color,
-      image_url: product!.image_url
+      image_url: product!.image_url,
+      badge: product!.badge
     });
+    
     localStorage.setItem('cart', JSON.stringify(cart));
     window.dispatchEvent(new Event('storage'));
     setAdding(true);
@@ -174,8 +181,39 @@ function cleanTitle(raw: string): string {
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(24px, 4vw, 48px) clamp(20px, 4vw, 40px)', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 32 : 64, alignItems: 'start' }}>
 
         {/* Image */}
-        <div style={{ position: isMobile ? 'relative' : 'sticky', top: 80 }}>
-          <ImageZoom src={product.image_url} alt={displayTitle} bg={product.bg_color} />
+<div style={{ position: isMobile ? 'relative' : 'sticky', top: 80 }}>
+          <ImageZoom src={activeImage || product.image_url} alt={displayTitle} bg={product.bg_color} />
+
+          {/* Thumbnail strip */}
+          {product.images && product.images.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+              {/* Main image thumbnail */}
+              <div
+                onClick={() => setActiveImage(product.image_url)}
+                style={{
+                  width: 56, height: 72, borderRadius: 8, overflow: 'hidden',
+                  cursor: 'pointer', border: (activeImage === product.image_url || !activeImage) ? '2px solid var(--accent)' : '1px solid var(--border)',
+                  background: product.bg_color, flexShrink: 0
+                }}
+              >
+                {product.image_url && <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+              </div>
+              {/* Extra image thumbnails */}
+              {(product.images as string[]).map((img, i) => (
+                <div
+                  key={i}
+                  onClick={() => setActiveImage(img)}
+                  style={{
+                    width: 56, height: 72, borderRadius: 8, overflow: 'hidden',
+                    cursor: 'pointer', border: activeImage === img ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: product.bg_color, flexShrink: 0
+                  }}
+                >
+                  <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Info */}

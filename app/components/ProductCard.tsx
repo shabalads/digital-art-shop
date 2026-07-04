@@ -60,13 +60,14 @@ export default function ProductCard({ product }: { product: Product }) {
               </svg>
             </div>
           )}
-          {product.badge && (
+{product.badge && (
             <div style={{
               position: 'absolute', top: 10, left: 10,
-              background: 'white', color: 'var(--accent-soft)',
-              fontSize: 10, fontWeight: 600, letterSpacing: '0.5px',
+              background: product.badge === 'Bestseller' ? '#8B6F4E' : product.badge === 'New' ? '#3B6D11' : product.badge === 'Trending' ? '#6B3B8B' : '#2C2420',
+              color: 'white',
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.8px',
               textTransform: 'uppercase', borderRadius: 4, padding: '3px 8px',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
+              boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
             }}>
               {product.badge}
             </div>

@@ -2,10 +2,26 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function ImageZoom({ src, alt, bg }: { src?: string; alt: string; bg: string }) {
   const [zoomed, setZoomed] = useState(false);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setZoomed(false);
+    }
+    if (zoomed) {
+      document.addEventListener('keydown', onKey);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [zoomed]);
 
   return (
     <>
@@ -18,7 +34,7 @@ export default function ImageZoom({ src, alt, bg }: { src?: string; alt: string;
           position: 'relative'
         }}
       >
-{src ? (
+        {src ? (
           <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, opacity: 0.25 }}>
@@ -35,44 +51,51 @@ export default function ImageZoom({ src, alt, bg }: { src?: string; alt: string;
             position: 'absolute', bottom: 12, right: 12,
             background: 'rgba(255,255,255,0.9)', borderRadius: 6,
             padding: '4px 8px', fontSize: 11, color: 'var(--text-secondary)',
-            backdropFilter: 'blur(4px)'
+            backdropFilter: 'blur(4px)', pointerEvents: 'none'
           }}>
             Click to zoom
           </div>
         )}
       </div>
 
-      {/* Lightbox */}
       {zoomed && (
         <div
           onClick={() => setZoomed(false)}
           style={{
-            position: 'fixed', inset: 0, zIndex: 1000,
-            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'zoom-out', padding: 32
           }}
         >
-          <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ position: 'relative', maxWidth: '88vw', maxHeight: '88vh' }}
+          >
             <img
               src={src}
               alt={alt}
               style={{
-                maxWidth: '100%', maxHeight: '90vh',
+                maxWidth: '100%', maxHeight: '88vh',
                 objectFit: 'contain', borderRadius: 12,
-                boxShadow: '0 24px 80px rgba(0,0,0,0.5)'
+                boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+                display: 'block'
               }}
             />
             <button
               onClick={() => setZoomed(false)}
               style={{
-                position: 'absolute', top: -16, right: -16,
+                position: 'absolute', top: -14, right: -14,
                 width: 32, height: 32, borderRadius: '50%',
                 background: 'white', border: 'none', cursor: 'pointer',
-                fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--text-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#1E1810', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                lineHeight: 1
               }}
             >×</button>
+          </div>
+          <div style={{ position: 'absolute', bottom: 24, left: 0, right: 0, textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
+            Click anywhere or press Esc to close
           </div>
         </div>
       )}

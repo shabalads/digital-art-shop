@@ -2,23 +2,25 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { categories } from '../../../data/products';
 
-export default function EditProductPage({ params }: { params: { id: string } }) {
+export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [form, setForm] = useState<any>(null);
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`/api/products?id=${params.id}`);
+      const res = await fetch(`/api/products?id=${id}`);
       const data = await res.json();
       if (data.products?.[0]) setForm(data.products[0]);
     }
     load();
-  }, [params.id]);
+  }, [id]);
 
   function set(key: string, value: any) {
     setForm((f: any) => ({ ...f, [key]: value }));
@@ -83,8 +85,36 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           </div>
         </Field>
 
-        <Field label="Image URL">
-          <input value={form.image_url || ''} onChange={e => set('image_url', e.target.value)} style={inputStyle} />
+<Field label="Image">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {form.image_url && (
+              <img src={form.image_url} alt="preview" style={{ width: 120, height: 160, objectFit: 'cover', borderRadius: 8, border: '0.5px solid var(--border)' }} />
+            )}
+<label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: uploadingImage ? '#6B5F52' : 'var(--accent)', color: 'white', borderRadius: 8, padding: '9px 16px', fontSize: 13, cursor: uploadingImage ? 'not-allowed' : 'pointer', width: 'fit-content' }}>
+              <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingImage} onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setUploadingImage(true);
+                try {
+                  const fd = new FormData();
+                  fd.append('file', file);
+                  const res = await fetch('/api/upload-image', { method: 'POST', body: fd });
+                  const data = await res.json();
+                  if (data.publicUrl) {
+                    set('image_url', data.publicUrl);
+                  } else {
+                    alert('Upload failed: ' + (data.error || 'Unknown error'));
+                  }
+                } catch (err) {
+                  alert('Upload failed');
+                } finally {
+                  setUploadingImage(false);
+                }
+              }} />
+              {uploadingImage ? 'Uploading…' : '↑ Upload new image'}
+            </label>
+            <input value={form.image_url || ''} onChange={e => set('image_url', e.target.value)} style={{ ...inputStyle, fontSize: 11, color: 'var(--text-muted)' }} placeholder="Or paste image URL" />
+          </div>
         </Field>
 
         <Field label="Digital file URL">

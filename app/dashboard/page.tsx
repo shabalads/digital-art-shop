@@ -41,6 +41,8 @@ export default function DashboardPage() {
           { href: '/dashboard/orders', icon: '↓', label: 'Orders', desc: 'View and track all orders', action: 'View orders' },
           { href: '/dashboard/import', icon: '⊕', label: 'Import', desc: 'Bulk import from Etsy CSV', action: 'Import listings' },
           { href: '/shop', icon: '◈', label: 'Storefront', desc: 'See your live shop', action: 'View shop' },
+          { href: '/dashboard/mockups', icon: '◻', label: 'Mockups', desc: 'Link room photos to products', action: 'Manage mockups' },
+          { href: '/dashboard/bestsellers', icon: '★', label: 'Bestsellers', desc: 'Manage and reorder bestsellers', action: 'Manage bestsellers' },
         ].map(card => (
           <Link key={card.href} href={card.href} style={{
             background: 'white', border: '0.5px solid var(--border-card)',

@@ -16,6 +16,7 @@ type CartItem = {
   quantity: number;
   bg_color: string;
   image_url?: string;
+  badge?: string;
 };
 
 export default function CartPage() {
@@ -98,7 +99,14 @@ export default function CartPage() {
 
               {/* Info */}
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, lineHeight: 1.3 }}>{item.title}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3 }}>{item.title}</div>
+                  {item.badge && (
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', background: '#8B6F4E', color: 'white', borderRadius: 4, padding: '2px 7px', flexShrink: 0 }}>
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
                   {item.type === 'digital' ? '⬇ Digital download' : '◻ Printed & shipped'}
                 </div>

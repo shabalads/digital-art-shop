@@ -10,6 +10,7 @@ export type Product = {
   badge?: string;
   bg_color: string;
   image_url?: string;
+  images?: string[];
   printful_product_id?: string;
   digital_file_url?: string;
   active: boolean;

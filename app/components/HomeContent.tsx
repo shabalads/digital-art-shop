@@ -18,13 +18,13 @@ const moods = [
 ];
 
 // Mockup images — replace src with your real mockup URLs when ready
-const mockups = [
-  { src: '/mockups/Image 2.png', room: 'Bathroom', desc: 'A coastal print bringing calm to an everyday space' },
-  { src: '/mockups/Image 3.png', room: 'Hallway', desc: 'A statement print that sets the tone the moment you walk in' },
-  { src: '/mockups/Image 7.png', room: 'Mantle', desc: 'A framed print as the centrepiece of a styled display' },
-  { src: '/mockups/Image 8.png', room: 'Gallery wall', desc: 'Mix and match prints to build a wall that tells your story' },
-  { src: '/mockups/Image 9.png', room: 'Nursery', desc: 'Gentle prints that grow with your little one' },
-  { src: '/mockups/Image 5.png', room: 'Living room', desc: 'The right print above a sofa ties the whole room together' },
+const MOCKUP_DEFAULTS = [
+  { key: 'bathroom', src: '/mockups/Image 2.png', room: 'Bathroom', desc: 'A coastal print bringing calm to an everyday space' },
+  { key: 'hallway', src: '/mockups/Image 3.png', room: 'Hallway', desc: 'A statement print that sets the tone the moment you walk in' },
+  { key: 'mantle', src: '/mockups/Image 7.png', room: 'Mantle', desc: 'A framed print as the centrepiece of a styled display' },
+  { key: 'gallery', src: '/mockups/Image 8.png', room: 'Gallery wall', desc: 'Mix and match prints to build a wall that tells your story' },
+  { key: 'nursery', src: '/mockups/Image 9.png', room: 'Nursery', desc: 'Gentle prints that grow with your little one' },
+  { key: 'living', src: '/mockups/Image 5.png', room: 'Living room', desc: 'The right print above a sofa ties the whole room together' },
 ];
 
 export default function HomeContent() {
@@ -32,22 +32,38 @@ export default function HomeContent() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [sort, setSort] = useState('featured');
   const [loading, setLoading] = useState(false);
-  const shopRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
 const [bestsellers, setBestsellers] = useState<Product[]>(bestsellerProducts);
 
+const shopRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [mockupLinks, setMockupLinks] = useState<Record<string, string>>({});
+
   useEffect(() => {
+    fetch('/api/settings?key=mockup_links')
+      .then(r => r.json())
+      .then(data => { if (data.value) setMockupLinks(data.value); });
+  }, []);
+
+  const mockups = MOCKUP_DEFAULTS.map(m => ({ ...m, link: mockupLinks[m.key] || '' }));
+
+useEffect(() => {
     async function fetchBestsellers() {
       try {
         const res = await fetch('/api/products?badge=Bestseller&limit=10');
         const data = await res.json();
-        if (data.products?.length > 0) setBestsellers(data.products);
+        if (data.products?.length > 0) {
+          const sorted = [...data.products].sort((a: any, b: any) =>
+            ((a.sort_order ?? 999) - (b.sort_order ?? 999))
+          );
+          setBestsellers(sorted);
+        }
       } catch {
         // keep mock fallback
       }
     }
     fetchBestsellers();
   }, []);
+  
   const recentlyAdded = [...allProducts].reverse().slice(0, 6);
 
   useEffect(() => {
@@ -194,7 +210,8 @@ const [bestsellers, setBestsellers] = useState<Product[]>(bestsellerProducts);
           ].map((m, i) => (
             <div
               key={i}
-              style={{ gridArea: m.area, position: 'relative', overflow: 'hidden', cursor: 'pointer' }}
+            style={{ gridArea: m.area, position: 'relative', overflow: 'hidden', cursor: m.link ? 'pointer' : 'default' }}
+            onClick={() => m.link && (window.location.href = m.link)}
               onMouseEnter={e => {
                 const overlay = (e.currentTarget as HTMLElement).querySelector('.overlay') as HTMLElement;
                 if (overlay) overlay.style.opacity = '1';

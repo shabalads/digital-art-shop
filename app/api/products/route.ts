@@ -18,9 +18,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ products: [data] });
   }
 
+const showTrashed = searchParams.get('trashed') === 'true';
+
   let query = supabaseAdmin
-    .from('products').select('*').eq('active', true)
+    .from('products').select('*')
     .order('created_at', { ascending: false }).limit(limit);
+
+  if (showTrashed) {
+    query = query.not('deleted_at', 'is', null);
+  } else {
+    query = query.eq('active', true).is('deleted_at', null);
+  }
 
 if (category && category !== 'all') query = query.eq('category', category.toLowerCase());
   if (badge) query = query.eq('badge', badge);
@@ -70,10 +78,19 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const id = new URL(req.url).searchParams.get('id');
+  const permanent = new URL(req.url).searchParams.get('permanent');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
-  const { error } = await supabaseAdmin.from('products').delete().eq('id', id);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (permanent === 'true') {
+    const { error } = await supabaseAdmin.from('products').delete().eq('id', id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  } else {
+    // Soft delete — move to trash
+    const { error } = await supabaseAdmin
+      .from('products')
+      .update({ deleted_at: new Date().toISOString(), active: false })
+      .eq('id', id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

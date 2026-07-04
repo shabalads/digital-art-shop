@@ -9,12 +9,12 @@ import { useIsMobile } from './useIsMobile';
 import { useUser, SignInButton, UserButton } from '@clerk/nextjs';
 
 function NavbarContent() {
-  const [search, setSearch] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -36,15 +36,19 @@ function NavbarContent() {
     };
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
     function onScroll() { setScrolled(window.scrollY > 8); }
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => { setMenuOpen(false); setSearchOpen(false); }, [pathname]);
+  useEffect(() => {
+    setMenuOpen(false);
+    setSearchOpen(false);
+    setSearch('');
+  }, [pathname]);
 
-  function handleSearch(e: React.KeyboardEvent) {
+function handleSearch(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && search.trim()) {
       router.push(`/shop?q=${encodeURIComponent(search.trim())}`);
       setSearch('');
@@ -142,37 +146,21 @@ function NavbarContent() {
         {/* Right */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
 
-          {/* Search */}
+{/* Search */}
           {!isMobile && (
-            <>
-              {searchOpen ? (
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginRight: 4 }}>
-                  <svg style={{ position: 'absolute', left: 12, color: '#8B7355', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  <input
-                    autoFocus
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    onKeyDown={handleSearch}
-                    onBlur={() => { if (!search) setSearchOpen(false); }}
-                    placeholder="Search prints…"
-                    style={{
-                      background: '#F2EDE6', border: '1px solid #C8B89A',
-                      borderRadius: 22, padding: '8px 16px 8px 34px', fontSize: 13,
-                      color: '#1E1810', width: 220, outline: 'none',
-                    }}
-                  />
-                </div>
-              ) : (
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  style={iconBtn}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#F0E8DC'; (e.currentTarget as HTMLElement).style.color = '#2C2420'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = '#6B5440'; }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                </button>
-              )}
-            </>
+            <button
+              onClick={() => setSearchOpen(true)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                width: 40, height: 40, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#6B5440', transition: 'background 0.15s, color 0.15s'
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#F0E8DC'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </button>
           )}
 
           {/* Account */}
@@ -225,6 +213,59 @@ function NavbarContent() {
         </div>
       </nav>
 
+{/* Search overlay */}
+      {searchOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(12px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          paddingTop: 120
+        }}
+          onClick={() => setSearchOpen(false)}
+        >
+          <div style={{ width: '100%', maxWidth: 640, padding: '0 24px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ position: 'relative' }}>
+              <svg style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', color: '#8B7355', pointerEvents: 'none' }} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                autoFocus
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={handleSearch}
+                placeholder="Search 500+ prints…"
+                style={{
+                  width: '100%', padding: '18px 18px 18px 52px', fontSize: 18,
+                  border: '1px solid #C8B89A', borderRadius: 16,
+                  background: 'white', color: '#1E1810', outline: 'none',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.08)'
+                }}
+              />
+              {search && (
+                <button onClick={() => setSearch('')} style={{
+                  position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 22, color: '#8B7355', lineHeight: 1
+                }}>×</button>
+              )}
+            </div>
+            <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {['botanical', 'abstract', 'coastal', 'vintage', 'floral', 'minimal'].map(term => (
+                <button key={term} onClick={() => {
+                  router.push(`/shop?q=${term}`);
+                  setSearchOpen(false);
+                }} style={{
+                  background: 'white', border: '0.5px solid #D4C4B0',
+                  borderRadius: 20, padding: '6px 14px', fontSize: 13,
+                  color: '#6B5440', cursor: 'pointer', textTransform: 'capitalize'
+                }}>{term}</button>
+              ))}
+            </div>
+            <p style={{ fontSize: 13, color: '#8B7355', marginTop: 20, textAlign: 'center' }}>
+              Press Enter to search · Esc to close
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Mobile menu */}
       {isMobile && menuOpen && (
         <div style={{
@@ -233,7 +274,7 @@ function NavbarContent() {
           padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: 4,
           borderTop: '0.5px solid #EAE4DC'
         }}>
-          <div style={{ marginBottom: 20 }}>
+<div style={{ marginBottom: 20 }}>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
