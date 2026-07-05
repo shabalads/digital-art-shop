@@ -9,6 +9,7 @@ import CartToast from '../../../components/CartToast';
 import ImageZoom from '../../../components/ImageZoom';
 import { useIsMobile } from '../../../components/useIsMobile';
 import Link from 'next/link';
+import HeartButton from '../../../components/HeartButton';
 
 const DIGITAL_SIZES = [
   { ratio: '2:3', label: 'Portrait', sizes: ['4×6"', '8×12"', '12×18"', '16×24"', '20×30"', '24×36"'] },
@@ -31,6 +32,7 @@ const PHYSICAL_SIZES = [
   { label: '24×36"', price: 69.99, popular: false },
 ];
 
+
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const [product, setProduct] = useState<Product | null>(null);
@@ -38,13 +40,20 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [loading, setLoading] = useState(true);
 const [type, setType] = useState<'digital' | 'physical'>('digital');
   const [activeImage, setActiveImage] = useState<string | undefined>(undefined);
-  const [selectedSize, setSelectedSize] = useState(PHYSICAL_SIZES[1]); // default 8×10"
+  const [selectedSize, setSelectedSize] = useState(PHYSICAL_SIZES[1].label); // default 8×10"
   const [adding, setAdding] = useState(false);
   const [toast, setToast] = useState(false);
   const isMobile = useIsMobile();
 
 useEffect(() => {
     if (product?.image_url) setActiveImage(product.image_url);
+    if (product?.id) {
+      fetch('/api/views', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id }),
+      });
+    }
   }, [product]);
 
   useEffect(() => {
@@ -92,27 +101,29 @@ useEffect(() => {
     </div>
   );
 
-  const price = type === 'digital' ? product.price_digital : selectedSize.price;
+  const activePhysicalSize = PHYSICAL_SIZES.find(size => size.label === selectedSize) ?? PHYSICAL_SIZES[1];
+  const price = type === 'digital' ? product.price_digital : activePhysicalSize.price;
 
   // Clean description — strip Etsy template boilerplate
-  function cleanDescription(raw: string): string {
+function cleanDescription(raw: string): string {
     if (!raw) return '';
-    // Remove everything from common Etsy template markers onwards
     const cutMarkers = [
-      '𝗗𝗜𝗚𝗜𝗧𝗔𝗟', 'DIGITAL WALL ART', '⬇︎', '** WHAT YOU', '•• WHAT YOU',
-      'WHAT YOU\'LL RECEIVE', 'FILE SIZES', '300dpi', 'HOW TO DOWNLOAD',
-      'IMPORTANT NOTES', 'PERSONAL USE ONLY', '𝐅𝐈𝐋𝐄', '𝐖𝐇𝐀𝐓'
+      '𝗗𝗜𝗚𝗜𝗧𝗔𝗟', 'DIGITAL WALL ART', 'DIGITAL DOWNLOAD', '⬇︎', '** WHAT YOU',
+      '•• WHAT YOU', 'WHAT YOU\'LL RECEIVE', 'FILE SIZES', '300dpi',
+      'HOW TO DOWNLOAD', 'IMPORTANT NOTES', 'PERSONAL USE ONLY',
+      '𝐅𝐈𝐋𝐄', '𝐖𝐇𝐀𝐓', '- ••', '••', '**', '| ⬇'
     ];
     let cleaned = raw;
     for (const marker of cutMarkers) {
       const idx = cleaned.indexOf(marker);
-      if (idx > 0) {
+      if (idx >= 0) {
         cleaned = cleaned.substring(0, idx).trim();
         break;
       }
     }
-    // Remove leading/trailing dashes, pipes, bullets
-    cleaned = cleaned.replace(/^[\s\-|•·]+/, '').replace(/[\s\-|•·]+$/, '').trim();
+    cleaned = cleaned.replace(/^[\s\-|•·▪►]+/, '').replace(/[\s\-|•·▪►]+$/, '').trim();
+    // If nothing left after cleaning, return empty
+    if (cleaned.length < 20) return '';
     return cleaned;
   }
 
@@ -120,7 +131,7 @@ useEffect(() => {
 
   function addToCart() {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const cartId = `${product!.id}-${type}-${type === 'physical' ? selectedSize.label : ''}`;
+    const cartId = `${product!.id}-${type}-${type === 'physical' ? activePhysicalSize.label : ''}`;
     const existing = cart.find((i: any) => i.cartId === cartId);
     if (existing && type === 'digital') { setToast(true); return; }
     if (existing) existing.quantity += 1;
@@ -130,7 +141,7 @@ else cart.push({
       title: product!.title,
       price,
       type,
-      size: type === 'physical' ? selectedSize.label : null,
+      size: type === 'physical' ? activePhysicalSize.label : null,
       quantity: 1,
       bg_color: product!.bg_color,
       image_url: product!.image_url,
@@ -182,7 +193,29 @@ function cleanTitle(raw: string): string {
 
         {/* Image */}
 <div style={{ position: isMobile ? 'relative' : 'sticky', top: 80 }}>
-          <ImageZoom src={activeImage || product.image_url} alt={displayTitle} bg={product.bg_color} />
+          <div style={{ position: 'relative' }}>
+            <ImageZoom src={activeImage || product.image_url} alt={displayTitle} bg={product.bg_color} />
+            <HeartButton productId={product.id} />
+            {(() => {
+              const GOLD = '#9C7A3C';
+              const cleanTags = (raw: any): string[] => Array.isArray(raw) ? raw.filter(t => typeof t === 'string' && t.trim() !== '') : [];
+              const tags = cleanTags((product as any).tags);
+              const isBestseller = tags.includes('Bestseller') || product.badge === 'Bestseller';
+              if (!isBestseller) return null;
+              return (
+                <div style={{
+                  position: 'absolute', top: 14, left: 14, zIndex: 3,
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(3px)',
+                  borderRadius: 6, padding: '5px 11px 5px 8px',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
+                }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill={GOLD}><path d="M12 2l2.9 6.5L22 9.3l-5 4.9 1.2 7.1L12 17.9l-6.2 3.4L7 14.2 2 9.3l7.1-.8L12 2z"/></svg>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: GOLD }}>Bestseller</span>
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Thumbnail strip */}
           {product.images && product.images.length > 0 && (
@@ -219,11 +252,26 @@ function cleanTitle(raw: string): string {
         {/* Info */}
         <div>
           <div style={{ fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--accent-soft)', marginBottom: 10, fontWeight: 500 }}>{product.category}</div>
-          <h1 style={{ fontSize: 'clamp(22px, 3.5vw, 32px)', fontWeight: 700, letterSpacing: '-0.8px', lineHeight: 1.2, marginBottom: 16 }}>{displayTitle}</h1>
+<h1 style={{ fontSize: 'clamp(22px, 3.5vw, 32px)', fontWeight: 700, letterSpacing: '-0.8px', lineHeight: 1.2, marginBottom: 16 }}>{displayTitle}</h1>
 
-          {product.badge && (
-            <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', background: 'var(--badge-bg)', color: 'var(--badge-text)', borderRadius: 4, padding: '3px 10px', marginBottom: 20 }}>{product.badge}</span>
-          )}
+{(() => {
+            const GOLD = '#9C7A3C';
+            const cleanTags = (raw: any): string[] => Array.isArray(raw) ? raw.filter(t => typeof t === 'string' && t.trim() !== '') : [];
+            const tags = cleanTags((product as any).tags);
+            const otherTags = tags.length > 0
+              ? tags.filter(t => t !== 'Bestseller')
+              : (product.badge && product.badge !== 'Bestseller' ? [product.badge] : []);
+
+            if (otherTags.length === 0) return null;
+
+            return (
+              <div style={{ marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {otherTags.map(t => (
+                  <span key={t} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: GOLD }}>{t}</span>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Type selector */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
@@ -238,8 +286,8 @@ function cleanTitle(raw: string): string {
                 <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4, opacity: type === t ? 0.8 : 0.5 }}>
                   {t === 'digital' ? 'Digital download' : 'Printed & shipped'}
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.5px' }}>
-                  {t === 'digital' ? `$${product.price_digital.toFixed(2)}` : `from $${PHYSICAL_SIZES[0].price.toFixed(2)}`}
+<div style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.5px' }}>
+                  {t === 'digital' ? `$${product.price_digital.toFixed(2)}` : t === type ? `$${activePhysicalSize.price.toFixed(2)}` : `from $${PHYSICAL_SIZES[0].price.toFixed(2)}`}
                 </div>
                 <div style={{ fontSize: 12, marginTop: 4, opacity: 0.65 }}>
                   {t === 'digital' ? 'Instant · all sizes included' : '3–5 days · 200gsm matte'}
@@ -303,17 +351,17 @@ function cleanTitle(raw: string): string {
                   {PHYSICAL_SIZES.map(size => (
                     <button
                       key={size.label}
-                      onClick={() => setSelectedSize(size)}
+                      onClick={() => setSelectedSize(size.label)}
                       style={{
                         padding: '10px 8px', borderRadius: 8, cursor: 'pointer',
                         textAlign: 'center', position: 'relative',
-                        background: selectedSize.label === size.label ? 'var(--accent)' : 'white',
-                        color: selectedSize.label === size.label ? 'white' : 'var(--text-primary)',
-                        border: `1px solid ${selectedSize.label === size.label ? 'var(--accent)' : 'var(--border)'}`,
+                        background: selectedSize === size.label ? 'var(--accent)' : 'white',
+                        color: selectedSize === size.label ? 'white' : 'var(--text-primary)',
+                        border: `1px solid ${selectedSize === size.label ? 'var(--accent)' : 'var(--border)'}`,
                         transition: 'all 0.15s'
                       }}
                     >
-                      {size.popular && selectedSize.label !== size.label && (
+                      {size.popular && selectedSize !== size.label && (
                         <div style={{ position: 'absolute', top: -6, right: -6, background: '#8B6F4E', color: 'white', fontSize: 8, fontWeight: 700, borderRadius: 4, padding: '1px 4px', letterSpacing: '0.3px' }}>TOP</div>
                       )}
                       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{size.label}</div>

@@ -8,12 +8,22 @@ export type Product = {
   price_digital: number;
   price_physical: number;
   badge?: string;
+  tags?: string[];
+  section_ids?: string[];   // ← new: which manually-curated sections this product belongs to
   bg_color: string;
   image_url?: string;
   images?: string[];
   printful_product_id?: string;
   digital_file_url?: string;
   active: boolean;
+};
+
+export type Section = {
+  id: string;
+  name: string;
+  slug: string;
+  sort_order: number;
+  created_at: string;
 };
 
 export const categories = ['All', 'Abstract', 'Botanical', 'Typography', 'Vintage', 'Minimal'];

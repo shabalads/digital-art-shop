@@ -4,20 +4,45 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { categories } from '../../../data/products';
+
+const ALL_TAGS = ['Bestseller', 'New', 'Trending', 'Staff pick', 'Top rated'];
+
+const TAG_COLORS: Record<string, string> = {
+  'Bestseller': '#8B6F4E',
+  'New': '#3B6D11',
+  'Trending': '#6B3B8B',
+  'Staff pick': '#2C2420',
+  'Top rated': '#B8860B',
+};
+
+function cleanTags(tags: any): string[] {
+  if (!Array.isArray(tags)) return [];
+  return tags.filter(t => typeof t === 'string' && t.trim() !== '');
+}
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const router = useRouter();
-  const [saving, setSaving] = useState(false);
+const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [form, setForm] = useState<any>(null);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch('/api/categories')
+      .then(r => r.json())
+      .then(data => setCategoryOptions((data.categories || []).map((c: any) => c.name)))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function load() {
       const res = await fetch(`/api/products?id=${id}`);
       const data = await res.json();
-      if (data.products?.[0]) setForm(data.products[0]);
+      if (data.products?.[0]) {
+        const p = data.products[0];
+        setForm({ ...p, tags: cleanTags(p.tags) });
+      }
     }
     load();
   }, [id]);
@@ -26,12 +51,20 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     setForm((f: any) => ({ ...f, [key]: value }));
   }
 
+  function toggleTag(tag: string) {
+    setForm((f: any) => {
+      const current: string[] = cleanTags(f.tags);
+      const next = current.includes(tag) ? current.filter(t => t !== tag) : [...current, tag];
+      return { ...f, tags: next };
+    });
+  }
+
   async function save() {
     setSaving(true);
     const res = await fetch('/api/products', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, tags: cleanTags(form.tags) }),
     });
     const data = await res.json();
     if (data.product) router.push('/dashboard/products');
@@ -54,9 +87,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
         </Field>
 
-        <Field label="Category">
+<Field label="Category">
           <select value={form.category} onChange={e => set('category', e.target.value)} style={inputStyle}>
-            {categories.filter(c => c !== 'All').map(c => (
+            {categoryOptions.map(c => (
               <option key={c} value={c.toLowerCase()}>{c}</option>
             ))}
           </select>
@@ -73,8 +106,32 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </Field>
         </div>
 
-        <Field label="Badge (optional)">
+        <Field label="Badge (legacy — single ribbon shown on card corner)">
           <input value={form.badge || ''} onChange={e => set('badge', e.target.value)} style={inputStyle} />
+        </Field>
+
+        <Field label="Tags (multiple — used for homepage/bestsellers sections)">
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {ALL_TAGS.map(tag => {
+              const active = cleanTags(form.tags).includes(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  style={{
+                    padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+                    cursor: 'pointer', border: `1px solid ${active ? TAG_COLORS[tag] : 'var(--border)'}`,
+                    background: active ? TAG_COLORS[tag] : 'white',
+                    color: active ? 'white' : 'var(--text-secondary)',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {active ? '✓ ' : ''}{tag}
+                </button>
+              );
+            })}
+          </div>
         </Field>
 
         <Field label="Background color">
@@ -85,12 +142,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </div>
         </Field>
 
-<Field label="Image">
+        <Field label="Image">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {form.image_url && (
               <img src={form.image_url} alt="preview" style={{ width: 120, height: 160, objectFit: 'cover', borderRadius: 8, border: '0.5px solid var(--border)' }} />
             )}
-<label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: uploadingImage ? '#6B5F52' : 'var(--accent)', color: 'white', borderRadius: 8, padding: '9px 16px', fontSize: 13, cursor: uploadingImage ? 'not-allowed' : 'pointer', width: 'fit-content' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: uploadingImage ? '#6B5F52' : 'var(--accent)', color: 'white', borderRadius: 8, padding: '9px 16px', fontSize: 13, cursor: uploadingImage ? 'not-allowed' : 'pointer', width: 'fit-content' }}>
               <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingImage} onChange={async e => {
                 const file = e.target.files?.[0];
                 if (!file) return;

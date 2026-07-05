@@ -9,7 +9,9 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get('category');
   const q = searchParams.get('q');
   const badge = searchParams.get('badge');
-  const limit = parseInt(searchParams.get('limit') || '50');
+  const tag = searchParams.get('tag');
+  const section = searchParams.get('section'); // ← new
+  const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 2000);
 
   if (id) {
     const { data, error } = await supabaseAdmin
@@ -18,11 +20,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ products: [data] });
   }
 
-const showTrashed = searchParams.get('trashed') === 'true';
+  const showTrashed = searchParams.get('trashed') === 'true';
 
   let query = supabaseAdmin
     .from('products').select('*')
-    .order('created_at', { ascending: false }).limit(limit);
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(limit);
 
   if (showTrashed) {
     query = query.not('deleted_at', 'is', null);
@@ -30,14 +34,15 @@ const showTrashed = searchParams.get('trashed') === 'true';
     query = query.eq('active', true).is('deleted_at', null);
   }
 
-if (category && category !== 'all') query = query.eq('category', category.toLowerCase());
+  if (category && category !== 'all') query = query.eq('category', category.toLowerCase());
   if (badge) query = query.eq('badge', badge);
+  if (tag) query = query.or(`tags.cs.{${tag}},badge.eq.${tag}`);
+  if (section) query = query.contains('section_ids', [section]); // ← new
   if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // If no results and there was a search query, try fuzzy match via RPC
   if (q && (!data || data.length === 0)) {
     const { data: fuzzyData } = await supabaseAdmin.rpc('search_products_fuzzy', { search_term: q, result_limit: limit });
     if (fuzzyData && fuzzyData.length > 0) {

@@ -20,6 +20,8 @@ const catParam = searchParams.get('cat');
   const [loading, setLoading] = useState(true);
 const [sort, setSort] = useState('featured');
   const [searchInput, setSearchInput] = useState(qParam || '');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 40;
 
   useEffect(() => {
     if (sortParam) setSort(sortParam);
@@ -30,9 +32,14 @@ useEffect(() => {
     else setActive('All');
   }, [catParam]);
 
-  useEffect(() => {
+useEffect(() => {
     setSearchInput(qParam || '');
+    setPage(1);
   }, [qParam]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [active, sort]);
 
   useEffect(() => {
     async function fetch_() {
@@ -41,7 +48,7 @@ useEffect(() => {
         const params = new URLSearchParams();
         if (active !== 'All') params.set('category', active.toLowerCase());
         if (qParam) params.set('q', qParam);
-        params.set('limit', '500');
+        params.set('limit', '1000');
         const res = await fetch(`/api/products?${params.toString()}`);
         const data = await res.json();
 if (data.products?.length > 0) setProducts(data.products);
@@ -122,13 +129,43 @@ if (data.products?.length > 0) setProducts(data.products);
           else router.push(`/shop?cat=${cat.toLowerCase()}`);
         }} align="left" />
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
-        {loading
-          ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
-          : sorted.map(p => <ProductCard key={p.id} product={p} />)
-        }
-      </div>
+{(() => {
+        const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+        const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        return (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
+              {loading
+                ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
+                : paginated.map(p => <ProductCard key={p.id} product={p} />)
+              }
+            </div>
+            {!loading && totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 48, flexWrap: 'wrap' }}>
+                <button onClick={() => { setPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} disabled={page === 1} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: page === 1 ? 'not-allowed' : 'pointer', background: 'white', border: '0.5px solid var(--border)', color: page === 1 ? 'var(--text-muted)' : 'var(--text-primary)', opacity: page === 1 ? 0.4 : 1 }}>← Previous</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
+                  .reduce((acc: (number | string)[], n, idx, arr) => {
+                    if (idx > 0 && n - (arr[idx - 1] as number) > 1) acc.push('...');
+                    acc.push(n);
+                    return acc;
+                  }, [])
+                  .map((n, i) => n === '...'
+                    ? <span key={`dot-${i}`} style={{ padding: '0 4px', color: 'var(--text-muted)' }}>…</span>
+                    : <button key={n} onClick={() => { setPage(n as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ width: 36, height: 36, borderRadius: 8, fontSize: 13, cursor: 'pointer', background: page === n ? 'var(--accent)' : 'white', border: `0.5px solid ${page === n ? 'var(--accent)' : 'var(--border)'}`, color: page === n ? 'white' : 'var(--text-primary)', fontWeight: page === n ? 600 : 400 }}>{n}</button>
+                  )
+                }
+                <button onClick={() => { setPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} disabled={page === totalPages} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: page === totalPages ? 'not-allowed' : 'pointer', background: 'white', border: '0.5px solid var(--border)', color: page === totalPages ? 'var(--text-muted)' : 'var(--text-primary)', opacity: page === totalPages ? 0.4 : 1 }}>Next →</button>
+              </div>
+            )}
+            {!loading && (
+              <div style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
+                Page {page} of {totalPages} · {sorted.length} designs
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {!loading && sorted.length === 0 && (
         <div style={{ textAlign: 'center', padding: '80px 0' }}>

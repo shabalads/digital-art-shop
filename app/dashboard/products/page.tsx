@@ -6,6 +6,21 @@ import { useState, useEffect } from 'react';
 import { Product } from '../../data/products';
 import Link from 'next/link';
 
+const ALL_TAGS = ['Bestseller', 'New', 'Trending', 'Staff pick', 'Top rated'];
+
+const TAG_COLORS: Record<string, string> = {
+  'Bestseller': '#8B6F4E',
+  'New': '#3B6D11',
+  'Trending': '#6B3B8B',
+  'Staff pick': '#2C2420',
+  'Top rated': '#B8860B',
+};
+
+function cleanTags(tags: any): string[] {
+  if (!Array.isArray(tags)) return [];
+  return tags.filter(t => typeof t === 'string' && t.trim() !== '');
+}
+
 export default function DashboardProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filtered, setFiltered] = useState<Product[]>([]);
@@ -15,6 +30,7 @@ export default function DashboardProductsPage() {
   const [batchLoading, setBatchLoading] = useState(false);
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [tagMode, setTagMode] = useState<string | null>(null);
+  const [batchTag, setBatchTag] = useState<string>(ALL_TAGS[0]);
 
   useEffect(() => { fetchProducts(); }, []);
 
@@ -68,6 +84,19 @@ export default function DashboardProductsPage() {
     else setSelected(new Set(filtered.map(p => p.id)));
   }
 
+  async function toggleProductTag(p: Product) {
+    if (!tagMode) return;
+    const current = cleanTags((p as any).tags);
+    const has = current.includes(tagMode);
+    const nextTags = has ? current.filter(t => t !== tagMode) : [...current, tagMode];
+    await fetch('/api/products', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: p.id, tags: nextTags }),
+    });
+    fetchProducts();
+  }
+
   async function batchAction(action: 'delete' | 'hide' | 'show') {
     if (action === 'delete' && !confirm(`Delete ${selected.size} products? Cannot be undone.`)) return;
     setBatchLoading(true);
@@ -77,6 +106,25 @@ export default function DashboardProductsPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, active: action === 'show' }),
+      });
+    }));
+    setSelected(new Set());
+    fetchProducts();
+    setBatchLoading(false);
+  }
+
+  async function batchTagAction(mode: 'add' | 'remove') {
+    setBatchLoading(true);
+    const targets = products.filter(p => selected.has(p.id));
+    await Promise.all(targets.map(p => {
+      const current = cleanTags((p as any).tags);
+      const nextTags = mode === 'add'
+        ? (current.includes(batchTag) ? current : [...current, batchTag])
+        : current.filter(t => t !== batchTag);
+      return fetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: p.id, tags: nextTags }),
       });
     }));
     setSelected(new Set());
@@ -116,7 +164,7 @@ export default function DashboardProductsPage() {
               color: view === 'list' ? 'white' : 'var(--text-secondary)'
             }}>List</button>
           </div>
-<Link href="/dashboard/trash" style={{
+          <Link href="/dashboard/trash" style={{
             background: 'none', border: '0.5px solid var(--border)', color: 'var(--text-secondary)',
             borderRadius: 8, padding: '9px 18px', fontSize: 13, textDecoration: 'none'
           }}>🗑 Trash</Link>
@@ -140,26 +188,21 @@ export default function DashboardProductsPage() {
         />
       </div>
 
-      {/* Quick tag bar */}
+      {/* Quick tag bar — click a tag, then click products to toggle it on/off individually */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Quick tag:</span>
-        {['Bestseller', 'New', 'Trending', 'Staff pick', 'Top rated'].map(tag => (
+        {ALL_TAGS.map(tag => (
           <button key={tag} onClick={() => setTagMode(tagMode === tag ? null : tag)} style={{
             padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
             cursor: 'pointer', border: 'none',
-            background: tagMode === tag
-              ? tag === 'Bestseller' ? '#8B6F4E'
-              : tag === 'New' ? '#3B6D11'
-              : tag === 'Trending' ? '#6B3B8B'
-              : '#2C2420'
-              : 'var(--bg-pill)',
+            background: tagMode === tag ? TAG_COLORS[tag] : 'var(--bg-pill)',
             color: tagMode === tag ? 'white' : 'var(--text-secondary)',
             transition: 'all 0.15s'
           }}>{tag}</button>
         ))}
         {tagMode && (
           <span style={{ fontSize: 12, color: 'var(--accent-soft)', fontStyle: 'italic' }}>
-            Click any product to toggle "{tagMode}" tag
+            Click any product to toggle "{tagMode}" (products can carry multiple tags)
           </span>
         )}
         {tagMode && (
@@ -173,6 +216,20 @@ export default function DashboardProductsPage() {
           background: '#2C2420', borderRadius: 8, marginBottom: 16, flexWrap: 'wrap'
         }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>{selected.size} selected</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <select value={batchTag} onChange={e => setBatchTag(e.target.value)} style={{
+              background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 6,
+              padding: '6px 10px', fontSize: 13, color: 'white', cursor: 'pointer'
+            }}>
+              {ALL_TAGS.map(t => <option key={t} value={t} style={{ color: '#1E1810' }}>{t}</option>)}
+            </select>
+            <button onClick={() => batchTagAction('add')} disabled={batchLoading} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer', color: 'white' }}>+ Add tag</button>
+            <button onClick={() => batchTagAction('remove')} disabled={batchLoading} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer', color: 'white' }}>− Remove tag</button>
+          </div>
+
+          <span style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.2)' }} />
+
           <button onClick={() => batchAction('show')} disabled={batchLoading} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer', color: 'white' }}>Make active</button>
           <button onClick={() => batchAction('hide')} disabled={batchLoading} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer', color: 'white' }}>Hide</button>
           <button onClick={() => batchAction('delete')} disabled={batchLoading} style={{ background: '#A32D2D', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer', color: 'white' }}>
@@ -195,73 +252,65 @@ export default function DashboardProductsPage() {
         <p style={{ color: 'var(--text-muted)', fontSize: 14, padding: '40px 0' }}>Loading…</p>
       ) : view === 'grid' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-          {filtered.map(p => (
-<div key={p.id} style={{
-              background: 'white', borderRadius: 10, overflow: 'hidden',
-              border: tagMode && p.badge === tagMode ? `2px solid ${tagMode === 'Bestseller' ? '#8B6F4E' : tagMode === 'New' ? '#3B6D11' : tagMode === 'Trending' ? '#6B3B8B' : '#2C2420'}`
-                : selected.has(p.id) ? '2px solid var(--accent)'
-                : '0.5px solid var(--border-card)',
-              position: 'relative'
-            }}>
-              <div onClick={() => !tagMode && toggleSelect(p.id)} style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, cursor: tagMode ? 'default' : 'pointer', opacity: tagMode ? 0 : 1 }}>
-                <div style={{
-                  width: 20, height: 20, borderRadius: 4,
-                  background: selected.has(p.id) ? 'var(--accent)' : 'rgba(255,255,255,0.9)',
-                  border: `1.5px solid ${selected.has(p.id) ? 'var(--accent)' : 'rgba(0,0,0,0.2)'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, color: 'white'
-                }}>
-                  {selected.has(p.id) && '✓'}
-                </div>
-              </div>
-<div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 600, borderRadius: 4, padding: '2px 7px',
-                  background: p.active ? 'rgba(59,109,17,0.9)' : 'rgba(139,115,85,0.9)',
-                  color: 'white'
-                }}>{p.active ? 'Active' : 'Hidden'}</span>
-                {p.badge && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '2px 7px',
-                    background: p.badge === 'Bestseller' ? 'rgba(139,111,78,0.95)'
-                      : p.badge === 'New' ? 'rgba(59,109,17,0.95)'
-                      : p.badge === 'Trending' ? 'rgba(107,59,139,0.95)'
-                      : 'rgba(44,36,32,0.95)',
-                    color: 'white'
-                  }}>{p.badge}</span>
-                )}
-              </div>
-              <div style={{ aspectRatio: '3/4', background: p.bg_color, overflow: 'hidden', cursor: tagMode ? 'pointer' : 'pointer' }} onClick={async () => {
-                if (tagMode) {
-                  const newBadge = p.badge === tagMode ? '' : tagMode;
-                  await fetch('/api/products', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: p.id, badge: newBadge }),
-                  });
-                  fetchProducts();
-                } else {
-                  toggleSelect(p.id);
-                }
+          {filtered.map(p => {
+            const tags = cleanTags((p as any).tags);
+            const hasTagModeTag = !!tagMode && tags.includes(tagMode);
+            return (
+              <div key={p.id} style={{
+                background: 'white', borderRadius: 10, overflow: 'hidden',
+                border: hasTagModeTag ? `2px solid ${TAG_COLORS[tagMode!]}`
+                  : selected.has(p.id) ? '2px solid var(--accent)'
+                  : '0.5px solid var(--border-card)',
+                position: 'relative'
               }}>
-                {p.image_url
-                  ? <img src={p.image_url} alt={p.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3 }}>
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                    </div>
-                }
-              </div>
-              <div style={{ padding: '10px 12px 12px' }}>
-                <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4, lineHeight: 1.3 }}>{cleanTitle(p.title)}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'capitalize' }}>{p.category} · ${p.price_digital.toFixed(2)}</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Link href={`/dashboard/products/${p.id}`} style={{ flex: 1, textAlign: 'center', fontSize: 12, padding: '5px 0', background: 'var(--bg-pill)', borderRadius: 6, color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}>Edit</Link>
-                  <button onClick={() => toggleActive(p.id, p.active)} style={{ flex: 1, fontSize: 12, padding: '5px 0', background: 'var(--bg-pill)', borderRadius: 6, border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{p.active ? 'Hide' : 'Show'}</button>
-                  <button onClick={() => deleteProduct(p.id)} style={{ fontSize: 12, padding: '5px 8px', background: '#FEF2F2', borderRadius: 6, border: 'none', cursor: 'pointer', color: '#A32D2D' }}>✕</button>
+                <div onClick={() => !tagMode && toggleSelect(p.id)} style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, cursor: tagMode ? 'default' : 'pointer', opacity: tagMode ? 0 : 1 }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: 4,
+                    background: selected.has(p.id) ? 'var(--accent)' : 'rgba(255,255,255,0.9)',
+                    border: `1.5px solid ${selected.has(p.id) ? 'var(--accent)' : 'rgba(0,0,0,0.2)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, color: 'white'
+                  }}>
+                    {selected.has(p.id) && '✓'}
+                  </div>
+                </div>
+                <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, borderRadius: 4, padding: '2px 7px',
+                    background: p.active ? 'rgba(59,109,17,0.9)' : 'rgba(139,115,85,0.9)',
+                    color: 'white'
+                  }}>{p.active ? 'Active' : 'Hidden'}</span>
+                  {tags.map(t => (
+                    <span key={t} style={{
+                      fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '2px 7px',
+                      background: (TAG_COLORS[t] || '#2C2420') + 'F2',
+                      color: 'white'
+                    }}>{t}</span>
+                  ))}
+                </div>
+                <div style={{ aspectRatio: '3/4', background: p.bg_color, overflow: 'hidden', cursor: 'pointer' }} onClick={() => {
+                  if (tagMode) toggleProductTag(p);
+                  else toggleSelect(p.id);
+                }}>
+                  {p.image_url
+                    ? <img src={p.image_url} alt={p.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3 }}>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                      </div>
+                  }
+                </div>
+                <div style={{ padding: '10px 12px 12px' }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4, lineHeight: 1.3 }}>{cleanTitle(p.title)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'capitalize' }}>{p.category} · ${p.price_digital.toFixed(2)}</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Link href={`/dashboard/products/${p.id}`} style={{ flex: 1, textAlign: 'center', fontSize: 12, padding: '5px 0', background: 'var(--bg-pill)', borderRadius: 6, color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}>Edit</Link>
+                    <button onClick={() => toggleActive(p.id, p.active)} style={{ flex: 1, fontSize: 12, padding: '5px 0', background: 'var(--bg-pill)', borderRadius: 6, border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>{p.active ? 'Hide' : 'Show'}</button>
+                    <button onClick={() => deleteProduct(p.id)} style={{ fontSize: 12, padding: '5px 8px', background: '#FEF2F2', borderRadius: 6, border: 'none', cursor: 'pointer', color: '#A32D2D' }}>✕</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -271,40 +320,51 @@ export default function DashboardProductsPage() {
               <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Product</th>
               <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Category</th>
               <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Digital</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Tags</th>
               <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Status</th>
               <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(p => (
-              <tr key={p.id} style={{ borderBottom: '0.5px solid var(--border)', background: selected.has(p.id) ? '#FAF5EE' : 'transparent' }}>
-                <td style={{ padding: '10px 12px' }}>
-                  <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} style={{ cursor: 'pointer', width: 15, height: 15 }} />
-                </td>
-                <td style={{ padding: '10px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 40, height: 52, borderRadius: 4, background: p.bg_color, flexShrink: 0, overflow: 'hidden' }}>
-                      {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            {filtered.map(p => {
+              const tags = cleanTags((p as any).tags);
+              return (
+                <tr key={p.id} style={{ borderBottom: '0.5px solid var(--border)', background: selected.has(p.id) ? '#FAF5EE' : 'transparent' }}>
+                  <td style={{ padding: '10px 12px' }}>
+                    <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} style={{ cursor: 'pointer', width: 15, height: 15 }} />
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 40, height: 52, borderRadius: 4, background: p.bg_color, flexShrink: 0, overflow: 'hidden' }}>
+                        {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                      </div>
+                      <span style={{ fontWeight: 500, maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanTitle(p.title)}</span>
                     </div>
-                    <span style={{ fontWeight: 500, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanTitle(p.title)}</span>
-                  </div>
-                </td>
-                <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{p.category}</td>
-                <td style={{ padding: '10px 12px' }}>${p.price_digital.toFixed(2)}</td>
-                <td style={{ padding: '10px 12px' }}>
-                  <span style={{ fontSize: 11, borderRadius: 4, padding: '2px 8px', background: p.active ? '#DCE8DC' : '#F0EBE3', color: p.active ? '#3B6D11' : '#8B7355' }}>
-                    {p.active ? 'Active' : 'Hidden'}
-                  </span>
-                </td>
-                <td style={{ padding: '10px 12px' }}>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <Link href={`/dashboard/products/${p.id}`} style={{ fontSize: 12, color: 'var(--accent-soft)' }}>Edit</Link>
-                    <button onClick={() => toggleActive(p.id, p.active)} style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{p.active ? 'Hide' : 'Show'}</button>
-                    <button onClick={() => deleteProduct(p.id)} style={{ fontSize: 12, color: '#A32D2D', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Delete</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{p.category}</td>
+                  <td style={{ padding: '10px 12px' }}>${p.price_digital.toFixed(2)}</td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {tags.map(t => (
+                        <span key={t} style={{ fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '2px 7px', background: TAG_COLORS[t] || '#2C2420', color: 'white' }}>{t}</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{ fontSize: 11, borderRadius: 4, padding: '2px 8px', background: p.active ? '#DCE8DC' : '#F0EBE3', color: p.active ? '#3B6D11' : '#8B7355' }}>
+                      {p.active ? 'Active' : 'Hidden'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <Link href={`/dashboard/products/${p.id}`} style={{ fontSize: 12, color: 'var(--accent-soft)' }}>Edit</Link>
+                      <button onClick={() => toggleActive(p.id, p.active)} style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{p.active ? 'Hide' : 'Show'}</button>
+                      <button onClick={() => deleteProduct(p.id)} style={{ fontSize: 12, color: '#A32D2D', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

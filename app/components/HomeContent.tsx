@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { mockProducts as allProducts, bestsellerProducts, Product, categories } from '../data/products';
+import { mockProducts as allProducts, bestsellerProducts, Product } from '../data/products';
 import ProductCard from './ProductCard';
 import SkeletonCard from './SkeletonCard';
 import Link from 'next/link';
@@ -18,6 +18,8 @@ const moods = [
 ];
 
 // Mockup images — replace src with your real mockup URLs when ready
+const HOME_PAGE_SIZE = 40;
+
 const MOCKUP_DEFAULTS = [
   { key: 'bathroom', src: '/mockups/Image 2.png', room: 'Bathroom', desc: 'A coastal print bringing calm to an everyday space' },
   { key: 'hallway', src: '/mockups/Image 3.png', room: 'Hallway', desc: 'A statement print that sets the tone the moment you walk in' },
@@ -37,11 +39,44 @@ const [bestsellers, setBestsellers] = useState<Product[]>(bestsellerProducts);
 const shopRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [mockupLinks, setMockupLinks] = useState<Record<string, string>>({});
+  const [sections, setSections] = useState<Array<{ id: string; name: string; products: Product[] }>>([]);
+  const [shopCategories, setShopCategories] = useState<string[]>(['All']);
 
-  useEffect(() => {
+useEffect(() => {
     fetch('/api/settings?key=mockup_links')
       .then(r => r.json())
       .then(data => { if (data.value) setMockupLinks(data.value); });
+  }, []);
+
+  useEffect(() => {
+    async function fetchSections() {
+      const [secRes, prodRes] = await Promise.all([
+        fetch('/api/sections'),
+        fetch('/api/products?limit=1000'),
+      ]);
+      const secData = await secRes.json();
+      const prodData = await prodRes.json();
+      const allProds: Product[] = prodData.products || [];
+      const built = (secData.sections || [])
+        .map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          products: allProds.filter(p => (p.section_ids || []).includes(s.id)),
+        }))
+        .filter((s: any) => s.products.length > 0);
+      setSections(built);
+    }
+    fetchSections();
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/categories')
+      .then(r => r.json())
+      .then(data => {
+        const names = (data.categories || []).map((c: any) => c.name);
+        setShopCategories(['All', ...names]);
+      })
+      .catch(() => {});
   }, []);
 
   const mockups = MOCKUP_DEFAULTS.map(m => ({ ...m, link: mockupLinks[m.key] || '' }));
@@ -49,13 +84,23 @@ const shopRef = useRef<HTMLDivElement>(null);
 useEffect(() => {
     async function fetchBestsellers() {
       try {
-        const res = await fetch('/api/products?badge=Bestseller&limit=10');
-        const data = await res.json();
-        if (data.products?.length > 0) {
-          const sorted = [...data.products].sort((a: any, b: any) =>
-            ((a.sort_order ?? 999) - (b.sort_order ?? 999))
-          );
-          setBestsellers(sorted);
+        const [productsRes, orderRes] = await Promise.all([
+          fetch('/api/products?tag=Bestseller&limit=200'),
+          fetch('/api/settings?key=' + encodeURIComponent('tag_order:Bestseller')),
+        ]);
+        const data = await productsRes.json();
+        const orderData = await orderRes.json();
+        const list = data.products || [];
+        const savedOrder: string[] = Array.isArray(orderData.value) ? orderData.value : [];
+
+        if (list.length > 0) {
+          const byId = new Map(list.map((p: any) => [p.id, p]));
+          const ordered: any[] = [];
+          for (const id of savedOrder) {
+            if (byId.has(id)) { ordered.push(byId.get(id)); byId.delete(id); }
+          }
+          ordered.push(...byId.values());
+          setBestsellers(ordered.slice(0, 5));
         }
       } catch {
         // keep mock fallback
@@ -72,7 +117,7 @@ useEffect(() => {
       try {
         const params = new URLSearchParams();
         if (activeCategory !== 'All') params.set('category', activeCategory.toLowerCase());
-        const res = await fetch(`/api/products?${params.toString()}&limit=100`);
+        const res = await fetch(`/api/products?${params.toString()}&limit=1000`);
         const data = await res.json();
         if (data.products?.length > 0) setProducts(data.products);
         else setProducts(allProducts);
@@ -242,7 +287,24 @@ useEffect(() => {
         </div>
 </div>
 
-{/* ── RECENTLY ADDED ── */}
+{/* ── SECTIONS ── */}
+      {sections.map(section => (
+        <div key={section.id} style={{ borderTop: '0.5px solid var(--border)', background: 'white', padding: '56px 0 64px' }}>
+          <div style={{ padding: '0 clamp(20px, 4vw, 40px)', maxWidth: 1280, margin: '0 auto', marginBottom: 28 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <h2 style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, letterSpacing: '-0.5px' }}>{section.name}</h2>
+              <Link href={`/shop?section=${section.id}`} style={{ fontSize: 13, color: 'var(--accent-soft)' }}>View all →</Link>
+            </div>
+          </div>
+          <div style={{ padding: '0 clamp(20px, 4vw, 40px)', maxWidth: 1280, margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
+              {section.products.slice(0, 5).map(p => <ProductCard key={p.id} product={p} />)}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* ── RECENTLY ADDED ── */}
 <div style={{ borderTop: '0.5px solid var(--border)', background: 'white', padding: '64px clamp(20px, 4vw, 40px) 72px', marginBottom: 0 }}>
   <div style={{ maxWidth: 1280, margin: '0 auto' }}>
     <div style={{ marginBottom: 28 }}>
@@ -271,7 +333,7 @@ useEffect(() => {
   </div>
 </div>
 
-      {/* ── FULL SHOP SECTION ── */}
+{/* ── FULL SHOP SECTION (capped preview — full pagination lives on /shop) ── */}
       <div ref={shopRef} style={{ borderTop: '0.5px solid var(--border)', padding: '56px clamp(20px, 4vw, 40px) 80px' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, flexWrap: 'wrap', gap: 16 }}>
@@ -280,7 +342,9 @@ useEffect(() => {
               <h2 style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, letterSpacing: '-0.5px' }}>All Prints</h2>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{sorted.length} designs</span>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                {loading ? '…' : `Showing ${Math.min(HOME_PAGE_SIZE, sorted.length)} of ${sorted.length} designs`}
+              </span>
               <select value={sort} onChange={e => setSort(e.target.value)} style={{
                 background: 'var(--bg)', border: '0.5px solid var(--border)',
                 borderRadius: 8, padding: '7px 12px', fontSize: 13,
@@ -295,7 +359,7 @@ useEffect(() => {
           </div>
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 36 }}>
-            {categories.map(cat => (
+            {shopCategories.map(cat => (
               <button key={cat} onClick={() => setActiveCategory(cat)} style={{
                 background: activeCategory === cat ? 'var(--accent)' : 'var(--bg-pill)',
                 color: activeCategory === cat ? 'white' : 'var(--text-secondary)',
@@ -310,7 +374,7 @@ useEffect(() => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20, opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s' }}>
             {loading
               ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
-              : sorted.map(p => <ProductCard key={p.id} product={p} />)
+              : sorted.slice(0, HOME_PAGE_SIZE).map(p => <ProductCard key={p.id} product={p} />)
             }
           </div>
 
@@ -324,12 +388,18 @@ useEffect(() => {
             </div>
           )}
 
-          <div style={{ textAlign: 'center', marginTop: 48 }}>
-            <Link href="/shop" style={{
-              display: 'inline-block', background: 'transparent', color: 'var(--text-primary)',
-              border: '0.5px solid var(--border)', borderRadius: 24, padding: '12px 32px', fontSize: 14
-            }}>See full shop with all 600+ prints →</Link>
-          </div>
+          {!loading && sorted.length > HOME_PAGE_SIZE && (
+            <div style={{ textAlign: 'center', marginTop: 40 }}>
+              <Link href={activeCategory === 'All' ? '/shop' : `/shop?cat=${activeCategory.toLowerCase()}`} style={{
+                display: 'inline-block', background: 'var(--accent)', color: 'white',
+                borderRadius: 24, padding: '13px 32px', fontSize: 14, fontWeight: 500,
+                textDecoration: 'none'
+              }}>
+                Browse all {sorted.length} prints →
+              </Link>
+            </div>
+          )}
+
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 'use client';
 
-import { categories } from '../data/products';
+import { useState, useEffect } from 'react';
 
 export default function CategoryPills({
   active,
@@ -13,6 +13,20 @@ export default function CategoryPills({
   onChange: (cat: string) => void;
   align?: 'center' | 'left';
 }) {
+  const [categories, setCategories] = useState<string[]>(['All']);
+
+  useEffect(() => {
+    fetch('/api/categories')
+      .then(r => r.json())
+      .then(data => {
+        const names = (data.categories || []).map((c: any) => c.name);
+        setCategories(['All', ...names]);
+      })
+      .catch(() => {
+        // keep just "All" if the fetch fails
+      });
+  }, []);
+
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: align === 'left' ? 'flex-start' : 'center' }}>
       {categories.map(cat => (

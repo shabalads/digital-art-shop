@@ -3,7 +3,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { Product } from '../data/products';
 
 function cleanProductTitle(raw: string): string {
@@ -19,8 +20,73 @@ function cleanProductTitle(raw: string): string {
   return cleaned;
 }
 
-export default function ProductCard({ product }: { product: Product }) {
+const HEART_COLORS = [
+  'rgba(220,50,50,0.9)',    // red
+  'rgba(220,80,150,0.9)',   // pink
+  'rgba(150,50,200,0.9)',   // purple
+  'rgba(50,120,220,0.9)',   // blue
+  'rgba(220,120,50,0.9)',   // coral
+  'rgba(220,180,0,0.9)',    // yellow
+];
+
+function getHeartColor(id: string): string {
+  const idx = id.charCodeAt(0) % HEART_COLORS.length;
+  return HEART_COLORS[idx];
+}
+
+const GOLD = '#9C7A3C';
+
+function cleanTags(raw: any): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(t => typeof t === 'string' && t.trim() !== '');
+}
+
+export default function ProductCard({ product, favoritedIds }: { product: Product; favoritedIds?: Set<string> }) {
+  const HEART_COLOR = getHeartColor(product.id);
   const [hovered, setHovered] = useState(false);
+  const [favorited, setFavorited] = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
+  const { user, isSignedIn } = useUser();
+
+  useEffect(() => {
+    if (favoritedIds) {
+      setFavorited(favoritedIds.has(product.id));
+    } else {
+      const cached = JSON.parse(localStorage.getItem('favorites') || '[]');
+      setFavorited(cached.includes(product.id));
+    }
+  }, [favoritedIds, product.id]);
+
+  async function toggleFavorite(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isSignedIn || !user) {
+      window.location.href = '/sign-in';
+      return;
+    }
+    const newFavorited = !favorited;
+    setFavorited(newFavorited);
+
+    const cached: string[] = JSON.parse(localStorage.getItem('favorites') || '[]');
+    const updated = newFavorited
+      ? [...cached, product.id]
+      : cached.filter((id: string) => id !== product.id);
+    localStorage.setItem('favorites', JSON.stringify(updated));
+
+    fetch('/api/favorites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, productId: product.id }),
+    });
+  }
+
+  const tags = cleanTags((product as any).tags);
+  const isBestseller = tags.includes('Bestseller') || product.badge === 'Bestseller';
+  // Other tags shown below the title — everything except Bestseller.
+  // Falls back to legacy single `badge` if tags array is empty and badge isn't "Bestseller".
+  const otherTags = tags.length > 0
+    ? tags.filter(t => t !== 'Bestseller')
+    : (product.badge && product.badge !== 'Bestseller' ? [product.badge] : []);
 
   return (
     <Link
@@ -30,68 +96,79 @@ export default function ProductCard({ product }: { product: Product }) {
       style={{ textDecoration: 'none', display: 'block' }}
     >
       <div style={{
-        background: 'var(--bg-card)',
-        borderRadius: 12,
-        border: '0.5px solid var(--border-card)',
-        overflow: 'hidden',
+        background: 'var(--bg-card)', borderRadius: 12,
+        border: '0.5px solid var(--border-card)', overflow: 'hidden',
         transition: 'transform 0.2s, box-shadow 0.2s',
         transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
         boxShadow: hovered ? '0 8px 24px rgba(0,0,0,0.07)' : '0 0 0 rgba(0,0,0,0)',
       }}>
-        {/* Image area */}
-        <div style={{
-          background: product.bg_color,
-          aspectRatio: '3/4',
-          overflow: 'hidden',
-          position: 'relative',
-        }}>
+        <div style={{ background: product.bg_color, aspectRatio: '3/4', overflow: 'hidden', position: 'relative' }}>
           {product.image_url ? (
-            <img
-              src={product.image_url}
-              alt={product.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s', transform: hovered ? 'scale(1.03)' : 'scale(1)' }}
-            />
+            <img src={product.image_url} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s', transform: hovered ? 'scale(1.03)' : 'scale(1)' }} />
           ) : (
-<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.25 }}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.25 }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             </div>
           )}
-{product.badge && (
+
+          {/* Bestseller — small, refined gold mark, not a block badge */}
+          {isBestseller && (
             <div style={{
               position: 'absolute', top: 10, left: 10,
-              background: product.badge === 'Bestseller' ? '#8B6F4E' : product.badge === 'New' ? '#3B6D11' : product.badge === 'Trending' ? '#6B3B8B' : '#2C2420',
-              color: 'white',
-              fontSize: 10, fontWeight: 700, letterSpacing: '0.8px',
-              textTransform: 'uppercase', borderRadius: 4, padding: '3px 8px',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(3px)',
+              borderRadius: 5, padding: '3px 8px 3px 6px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
             }}>
-              {product.badge}
+              <svg width="9" height="9" viewBox="0 0 24 24" fill={GOLD}><path d="M12 2l2.9 6.5L22 9.3l-5 4.9 1.2 7.1L12 17.9l-6.2 3.4L7 14.2 2 9.3l7.1-.8L12 2z"/></svg>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: GOLD }}>Bestseller</span>
             </div>
           )}
+
+          {/* Heart */}
+          <button
+            onClick={toggleFavorite}
+            disabled={favLoading}
+            style={{
+              position: 'absolute', top: 8, right: 8,
+              width: 32, height: 32, borderRadius: '50%',
+              background: favorited ? HEART_COLOR : 'rgba(255,255,255,0.85)',
+              border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: hovered || favorited ? 1 : 0,
+              transition: 'opacity 0.2s, background 0.2s',
+              backdropFilter: 'blur(4px)',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
+            }}
+          >
+           <svg width="15" height="15" viewBox="0 0 24 24" fill={favorited ? 'white' : 'none'} stroke={favorited ? 'none' : HEART_COLOR} strokeWidth="2" strokeLinecap="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
         </div>
 
-        
-
-        {/* Info */}
         <div style={{ padding: '12px 14px 14px' }}>
-<div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>
             {cleanProductTitle(product.title)}
             <span style={{ display: 'none' }}>{product.title}</span>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'capitalize' }}>
-            {product.category}
-          </div>
+
+          {/* Other tags — small gold text under the name, Etsy-style */}
+          {otherTags.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+              {otherTags.map(t => (
+                <span key={t} style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.5px',
+                  textTransform: 'uppercase', color: GOLD
+                }}>{t}</span>
+              ))}
+            </div>
+          )}
+
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'capitalize' }}>{product.category}</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-              from ${product.price_digital.toFixed(2)}
-            </span>
-<span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              digital + print
-            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>from ${product.price_digital.toFixed(2)}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>digital + print</span>
           </div>
         </div>
       </div>
