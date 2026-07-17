@@ -14,7 +14,7 @@ const faqs = [
   { q: 'Which countries do you ship physical prints to?', a: 'We ship worldwide including US, UK, EU, Canada, Australia and most other countries. Shipping cost is calculated at checkout based on your location.' },
   { q: 'Can I use the prints commercially?', a: 'All prints are licensed for personal use only. Commercial use, reselling, or redistribution is not permitted.' },
   { q: 'What size frame should I use?', a: 'Our files fit standard frame sizes. A4 fits a standard A4 frame, 8×10" fits a standard 8×10" frame. We recommend IKEA RIBBA frames as affordable options that work perfectly.' },
-  { q: 'I did not receive my download email. What should I do?', a: 'Check your spam or junk folder first. If it is not there, contact us at itemssycrafts@gmail.com with your order number and we will resend the files immediately.' },
+  { q: 'I did not receive my download email. What should I do?', a: 'Check your spam or junk folder first. If it is not there, contact us at itemssy@email.cz with your order number and we will resend the files immediately.' },
 ];
 
 export default function FAQContent() {

@@ -5,44 +5,36 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-type Category = { id: string; name: string; slug: string; sort_order: number };
+type Section = {
+  id: string;
+  name: string;
+  slug: string;
+  sort_order: number;
+  product_count: number;
+};
 
-export default function CategoryManagerPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
+export default function CategoriesPage() {
+  const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [productCounts, setProductCounts] = useState<Record<string, number>>({});
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   useEffect(() => { load(); }, []);
 
   async function load() {
     setLoading(true);
-    try {
-      const [catRes, prodRes] = await Promise.all([
-        fetch('/api/categories'),
-        fetch('/api/products?limit=2000'),
-      ]);
-      const catData = await catRes.json();
-      const prodData = await prodRes.json();
-      setCategories(catData.categories || []);
-
-      const counts: Record<string, number> = {};
-      for (const p of prodData.products || []) {
-        counts[p.category] = (counts[p.category] || 0) + 1;
-      }
-      setProductCounts(counts);
-    } finally {
-      setLoading(false);
-    }
+    const res = await fetch('/api/sections');
+    const data = await res.json();
+    setSections(data.sections || []);
+    setLoading(false);
   }
 
-  async function createCategory() {
+  async function create() {
     if (!newName.trim()) return;
     setCreating(true);
-    await fetch('/api/categories', {
+    await fetch('/api/sections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newName.trim() }),
@@ -52,98 +44,107 @@ export default function CategoryManagerPage() {
     load();
   }
 
-  async function rename(cat: Category) {
-    if (!editName.trim() || editName.trim() === cat.name) { setEditingId(null); return; }
-
-    const count = productCounts[cat.slug] || 0;
-    let renameProducts = false;
-    if (count > 0) {
-      renameProducts = confirm(
-        `${count} product${count !== 1 ? 's are' : ' is'} currently using "${cat.name}". Update them to the new name too? (Cancel keeps them on the old value.)`
-      );
-    }
-
-    await fetch('/api/categories', {
+  async function rename(id: string) {
+    if (!renameValue.trim()) return;
+    await fetch('/api/sections', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: cat.id, name: editName.trim(), renameProducts }),
+      body: JSON.stringify({ id, name: renameValue.trim() }),
     });
-    setEditingId(null);
+    setRenamingId(null);
     load();
   }
 
-  async function remove(cat: Category) {
-    const count = productCounts[cat.slug] || 0;
-    const msg = count > 0
-      ? `${count} product${count !== 1 ? 's use' : ' uses'} "${cat.name}". Deleting the category won't touch those products, but they'll no longer match a real filter. Delete anyway?`
-      : `Delete "${cat.name}"?`;
-    if (!confirm(msg)) return;
-    await fetch(`/api/categories?id=${cat.id}`, { method: 'DELETE' });
+  async function deleteSection(id: string, name: string) {
+    if (!confirm(`Delete "${name}"? Products will not be affected.`)) return;
+    await fetch(`/api/sections?id=${id}`, { method: 'DELETE' });
     load();
   }
 
-  async function move(id: string, direction: 'up' | 'down') {
-    const idx = categories.findIndex(c => c.id === id);
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= categories.length) return;
-    const a = categories[idx];
-    const b = categories[swapIdx];
+  async function move(idx: number, dir: 'up' | 'down') {
+    const updated = [...sections];
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= updated.length) return;
+    [updated[idx], updated[swapIdx]] = [updated[swapIdx], updated[idx]];
+    setSections(updated);
     await Promise.all([
-      fetch('/api/categories', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: a.id, sort_order: b.sort_order }) }),
-      fetch('/api/categories', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: b.id, sort_order: a.sort_order }) }),
+      fetch('/api/sections', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: updated[idx].id, sort_order: idx }) }),
+      fetch('/api/sections', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: updated[swapIdx].id, sort_order: swapIdx }) }),
     ]);
-    load();
   }
 
   return (
-    <div style={{ padding: '32px', maxWidth: 700, margin: '0 auto' }}>
-      <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>← Dashboard</Link>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Categories</h1>
-      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 28 }}>
-        These power the filter pills on your Shop page. Renaming updates products only if you confirm it.
-      </p>
+    <div style={{ padding: '32px', maxWidth: 800, margin: '0 auto' }}>
+      <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block', marginBottom: 12 }}>← Dashboard</Link>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Categories</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Create and manage your shop categories. These appear as filter pills on the shop page.</p>
+      </div>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 28 }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 32 }}>
         <input
           value={newName}
           onChange={e => setNewName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && createCategory()}
+          onKeyDown={e => e.key === 'Enter' && create()}
           placeholder="New category name, e.g. 'Coastal'"
-          style={{ flex: 1, padding: '10px 14px', fontSize: 14, border: '0.5px solid var(--border)', borderRadius: 8, background: 'white', outline: 'none' }}
+          style={{
+            flex: 1, padding: '10px 14px', fontSize: 14,
+            border: '0.5px solid var(--border)', borderRadius: 8,
+            background: 'white', color: 'var(--text-primary)', outline: 'none'
+          }}
         />
-        <button onClick={createCategory} disabled={creating || !newName.trim()} style={{
-          background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 8,
-          padding: '10px 20px', fontSize: 14, fontWeight: 500, cursor: creating ? 'not-allowed' : 'pointer', opacity: creating ? 0.6 : 1
-        }}>+ Add</button>
+        <button onClick={create} disabled={creating || !newName.trim()} style={{
+          background: 'var(--accent)', color: 'white', border: 'none',
+          borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 500,
+          cursor: creating || !newName.trim() ? 'not-allowed' : 'pointer',
+          opacity: !newName.trim() ? 0.5 : 1
+        }}>
+          {creating ? 'Adding…' : '+ Add'}
+        </button>
       </div>
 
       {loading ? (
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading…</p>
+      ) : sections.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-secondary)' }}>
+          <p style={{ fontSize: 15, marginBottom: 8 }}>No categories yet</p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Type a name above and press Enter</p>
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {categories.map((c, i) => (
-            <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'white', border: '0.5px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+          {sections.map((s, i) => (
+            <div key={s.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '14px 16px', background: 'white',
+              border: '0.5px solid var(--border)', borderRadius: 10
+            }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <button onClick={() => move(c.id, 'up')} disabled={i === 0} style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', opacity: i === 0 ? 0.25 : 1, fontSize: 12, lineHeight: 1, padding: 0 }}>▲</button>
-                <button onClick={() => move(c.id, 'down')} disabled={i === categories.length - 1} style={{ background: 'none', border: 'none', cursor: i === categories.length - 1 ? 'default' : 'pointer', opacity: i === categories.length - 1 ? 0.25 : 1, fontSize: 12, lineHeight: 1, padding: 0 }}>▼</button>
+                <button onClick={() => move(i, 'up')} disabled={i === 0} style={{ width: 22, height: 22, borderRadius: 4, border: '0.5px solid var(--border)', background: 'var(--bg)', cursor: i === 0 ? 'not-allowed' : 'pointer', fontSize: 10, opacity: i === 0 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↑</button>
+                <button onClick={() => move(i, 'down')} disabled={i === sections.length - 1} style={{ width: 22, height: 22, borderRadius: 4, border: '0.5px solid var(--border)', background: 'var(--bg)', cursor: i === sections.length - 1 ? 'not-allowed' : 'pointer', fontSize: 10, opacity: i === sections.length - 1 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↓</button>
               </div>
 
-              {editingId === c.id ? (
-                <input
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && rename(c)}
-                  onBlur={() => rename(c)}
-                  autoFocus
-                  style={{ flex: 1, padding: '6px 10px', fontSize: 14, border: '0.5px solid var(--accent)', borderRadius: 6, outline: 'none' }}
-                />
-              ) : (
-                <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{c.name}</span>
-              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {renamingId === s.id ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') rename(s.id); if (e.key === 'Escape') setRenamingId(null); }} style={{ flex: 1, padding: '6px 10px', fontSize: 14, fontWeight: 600, border: '1px solid var(--accent)', borderRadius: 6, outline: 'none', background: 'white' }} />
+                    <button onClick={() => rename(s.id)} style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 13, cursor: 'pointer' }}>Save</button>
+                    <button onClick={() => setRenamingId(null)} style={{ background: 'none', border: '0.5px solid var(--border)', borderRadius: 6, padding: '6px 12px', fontSize: 13, cursor: 'pointer', color: 'var(--text-muted)' }}>Cancel</button>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{s.product_count} product{s.product_count !== 1 ? 's' : ''}</div>
+                  </div>
+                )}
+              </div>
 
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{productCounts[c.slug] || 0} products</span>
-              <button onClick={() => { setEditingId(c.id); setEditName(c.name); }} style={{ fontSize: 12, color: 'var(--accent-soft)', background: 'none', border: 'none', cursor: 'pointer' }}>Rename</button>
-              <button onClick={() => remove(c)} style={{ fontSize: 12, color: '#A32D2D', background: 'none', border: 'none', cursor: 'pointer' }}>Delete</button>
+              {renamingId !== s.id && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button onClick={() => { setRenamingId(s.id); setRenameValue(s.name); }} style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'none', border: '0.5px solid var(--border)', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>Rename</button>
+                  <Link href={`/dashboard/categories/${s.id}`} style={{ fontSize: 12, color: 'white', background: 'var(--accent)', border: 'none', borderRadius: 6, padding: '6px 14px', textDecoration: 'none', whiteSpace: 'nowrap', fontWeight: 500 }}>Add products →</Link>
+                  <button onClick={() => deleteSection(s.id, s.name)} style={{ fontSize: 12, color: '#A32D2D', background: '#FEF2F2', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}>Delete</button>
+                </div>
+              )}
             </div>
           ))}
         </div>

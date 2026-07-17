@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useIsMobile } from '../../components/useIsMobile';
+import { convert, currencySymbol } from '../../lib/currency';
 
 type CartItem = {
   cartId: string;
@@ -13,6 +14,9 @@ type CartItem = {
   price: number;
   type: 'digital' | 'physical';
   size?: string | null;
+  printful_variant_id?: string | null;
+  printify_variant_id?: string | null;
+  gelato_variant_id?: string | null;
   quantity: number;
   bg_color: string;
   image_url?: string;
@@ -20,10 +24,12 @@ type CartItem = {
 };
 
 export default function CartPage() {
-  const [cart, setCart] = useState<CartItem[]>([]);
+const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [cleared, setCleared] = useState(false);
+  const [currency, setCurrency] = useState<'usd' | 'eur'>('usd');
   const isMobile = useIsMobile();
+  const sym = currencySymbol(currency);
 
   useEffect(() => {
     setCart(JSON.parse(localStorage.getItem('cart') || '[]'));
@@ -49,15 +55,33 @@ export default function CartPage() {
     save(cart.map(i => i.cartId === cartId ? { ...i, quantity: qty } : i));
   }
 
-  const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const hasPhysical = cart.some(i => i.type === 'physical');
+// Bundle promo: every full group of 3 digital items gets its cheapest one free
+  const digitalItems = cart.filter(i => i.type === 'digital');
+  const sortedDigitalByPrice = [...digitalItems].sort((a, b) => a.price - b.price);
+  const freeCartIds = new Set<string>();
+  for (let i = 0; i + 2 < sortedDigitalByPrice.length; i += 3) {
+    freeCartIds.add(sortedDigitalByPrice[i].cartId);
+  }
+  const bundleDiscountUsd = sortedDigitalByPrice
+    .filter(i => freeCartIds.has(i.cartId))
+    .reduce((sum, i) => sum + i.price, 0);
+  const bundleDiscount = convert(bundleDiscountUsd, currency);
 
-  async function checkout() {
+  const rawSubtotal = cart.reduce((sum, i) => sum + convert(i.price, currency) * i.quantity, 0);
+  const subtotal = rawSubtotal - bundleDiscount;
+  const hasPhysical = cart.some(i => i.type === 'physical');
+  const digitalCount = digitalItems.length;
+  const digitalsUntilFree = digitalCount === 0 ? 2 : (3 - (digitalCount % 3)) % 3;
+
+async function checkout() {
     setLoading(true);
+    const itemsForCheckout = cart.map(i =>
+      freeCartIds.has(i.cartId) ? { ...i, price: 0 } : i
+    );
     const res = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: cart }),
+      body: JSON.stringify({ items: itemsForCheckout, currency }),
     });
     const data = await res.json();
     if (data.url) window.location.href = data.url;
@@ -77,11 +101,38 @@ export default function CartPage() {
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '48px 40px 80px', opacity: cleared ? 0 : 1, transition: 'opacity 0.3s' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-1px' }}>Your cart</h1>
-        <button onClick={clearAll} style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>Clear all</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', border: '0.5px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+            {(['usd', 'eur'] as const).map(c => (
+              <button key={c} onClick={() => setCurrency(c)} style={{
+                padding: '6px 14px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+                background: currency === c ? 'var(--accent)' : 'white',
+                color: currency === c ? 'white' : 'var(--text-secondary)'
+              }}>{c.toUpperCase()}</button>
+            ))}
+          </div>
+          <button onClick={clearAll} style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>Clear all</button>
+        </div>
       </div>
-      <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 40 }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</p>
+      <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24 }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</p>
+
+      {digitalCount >= 2 && (
+        <div style={{
+          background: freeCartIds.size > 0 ? '#F0F7EC' : '#FAF5EC',
+          border: `1px solid ${freeCartIds.size > 0 ? '#8FBF6F' : 'var(--accent)'}30`,
+          borderRadius: 12, padding: '14px 18px', marginBottom: 32,
+          display: 'flex', alignItems: 'center', gap: 10
+        }}>
+          <span style={{ fontSize: 18 }}>{freeCartIds.size > 0 ? '🎉' : '🎁'}</span>
+          <div style={{ fontSize: 13.5, color: 'var(--text-primary)' }}>
+            {freeCartIds.size > 0
+? <>You got <strong>{freeCartIds.size} free digital print{freeCartIds.size !== 1 ? 's' : ''}</strong> — saving {sym}{bundleDiscount.toFixed(2)}!</>
+              : <>Add <strong>1 more digital print</strong> and get one free.</>}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: isMobile ? 32 : 48, alignItems: 'start' }}>
         <div>
@@ -135,7 +186,7 @@ export default function CartPage() {
 
               {/* Price + remove */}
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>${(item.price * item.quantity).toFixed(2)}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>{sym}{(convert(item.price, currency) * item.quantity).toFixed(2)}</div>
                 <button onClick={() => remove(item.cartId)} style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>Remove</button>
               </div>
             </div>
@@ -145,26 +196,31 @@ export default function CartPage() {
         {/* Summary */}
         <div style={{ background: 'white', border: '0.5px solid var(--border)', borderRadius: 14, padding: '28px', position: 'sticky', top: 80 }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 20 }}>Order summary</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 }}>
-            <span>Subtotal</span><span>${subtotal.toFixed(2)}</span>
+<div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 }}>
+            <span>Subtotal</span><span>{sym}{rawSubtotal.toFixed(2)}</span>
           </div>
+          {bundleDiscount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#3B6D11', marginBottom: 10 }}>
+              <span>Bundle discount (3rd digital free)</span><span>−{sym}{bundleDiscount.toFixed(2)}</span>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20, paddingBottom: 20, borderBottom: '0.5px solid var(--border)' }}>
             <span>Shipping</span>
             <span style={{ color: hasPhysical ? 'var(--text-secondary)' : '#3B6D11' }}>{hasPhysical ? 'Calculated at checkout' : 'Free'}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, marginBottom: 24 }}>
-            <span>Total</span><span>${subtotal.toFixed(2)}</span>
+<div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, marginBottom: 24 }}>
+            <span>Total</span><span>{sym}{subtotal.toFixed(2)}</span>
           </div>
           <button onClick={checkout} disabled={loading} style={{
             width: '100%', background: loading ? '#6B5F52' : 'var(--accent)', color: 'white',
             border: 'none', borderRadius: 10, padding: '14px 0', fontSize: 15, fontWeight: 600,
             cursor: loading ? 'not-allowed' : 'pointer', marginBottom: 12
           }}>
-            {loading ? 'Redirecting…' : `Checkout — $${subtotal.toFixed(2)}`}
+            {loading ? 'Redirecting…' : `Checkout — ${sym}${subtotal.toFixed(2)}`}
           </button>
           <Link href="/shop" style={{ display: 'block', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>← Continue shopping</Link>
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: '0.5px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {['Secure checkout via Stripe', 'Instant delivery for digital files', 'Print fulfilled by Printful'].map(t => (
+            {['Secure checkout via Stripe', 'Instant delivery for digital files', 'Prints fulfilled by our print partners'].map(t => (
               <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)' }}>
                 <span style={{ color: '#3B6D11' }}>✓</span> {t}
               </div>

@@ -41,8 +41,8 @@ function SuccessContent() {
         <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: 16 }}>What happens next</div>
         {[
           { step: '1', label: 'Digital downloads', desc: 'Your files will arrive by email within minutes. Check spam if not received.' },
-          { step: '2', label: 'Physical prints', desc: 'Your print will be produced and shipped within 3–5 business days.' },
-          { step: '3', label: 'Need help?', desc: 'Email itemssycrafts@gmail.com — we respond within 24 hours.' },
+{ step: '2', label: 'Physical prints', desc: 'Your print will be produced and shipped shortly — you\'ll get a shipping confirmation once it\'s on its way.' },
+          { step: '3', label: 'Need help?', desc: 'Message us anytime — response times vary, and if it\'s been over an hour on a cancellation or refund request, don\'t worry, you\'re still covered.' },
         ].map(s => (
           <div key={s.step} style={{ display: 'flex', gap: 14, marginBottom: 16, alignItems: 'flex-start' }}>
             <div style={{

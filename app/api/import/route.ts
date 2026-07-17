@@ -22,14 +22,10 @@ function mapEtsyRow(row: Record<string, string>) {
   const title = row['TITLE'] || row['Title'] || 'Untitled';
   const description = row['DESCRIPTION'] || row['Description'] || '';
   const imageUrl = row['IMAGE1'] || row['Image1'] || row['IMAGE_URL'] || row['Image URL'] || '';
-  const extraImages = [
-    row['IMAGE2'], row['IMAGE3'], row['IMAGE4'], row['IMAGE5'],
-    row['IMAGE6'], row['IMAGE7'], row['IMAGE8'], row['IMAGE9'], row['IMAGE10']
-  ].filter(Boolean) as string[];
   const price = parseFloat(row['PRICE'] || row['Price'] || '3.99') || 3.99;
-  const active = true; // default all imported listings to activel
-  
-return {
+  const active = (row['STATUS'] || row['Status'] || '').toLowerCase() === 'active';
+
+  return {
     title,
     description,
     category: guessCategory(title),
@@ -38,7 +34,6 @@ return {
     badge: '',
     bg_color: randomBg(),
     image_url: imageUrl,
-    images: extraImages,
     digital_file_url: imageUrl,
     active,
   };
@@ -72,22 +67,9 @@ export async function POST(req: NextRequest) {
   let skipped = 0;
   const failures: Array<{ title: string; reason: string }> = [];
 
-// Get existing titles to avoid duplicates
-  const { data: existing } = await supabaseAdmin
-    .from('products')
-    .select('title');
-  const existingTitles = new Set((existing || []).map((p: any) => p.title.toLowerCase().trim()));
-
   for (const row of rows) {
     try {
       const product = mapEtsyRow(row);
-
-      // Skip if already exists
-      if (existingTitles.has(product.title.toLowerCase().trim())) {
-        skipped += 1;
-        continue;
-      }
-
       let imageUrl = product.image_url || '';
 
       if (imageUrl && /^https?:\/\//i.test(imageUrl)) {

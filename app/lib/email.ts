@@ -49,11 +49,11 @@ export async function sendOrderEmail({
   await resend.emails.send({
     from: process.env.FROM_EMAIL!,
     to,
-    subject: `Your ItemssyCrafts order — #${orderRef}`,
+    subject: `Your ItemssyPrints order — #${orderRef}`,
     html: `<!DOCTYPE html>
 <html>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:540px;margin:0 auto;padding:40px 24px;color:#222;background:#fff;">
-  <p style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#aaa;margin:0 0 24px;">ItemssyCrafts</p>
+  <p style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#aaa;margin:0 0 24px;">ItemssyPrints</p>
 
   <h1 style="font-size:26px;font-weight:700;letter-spacing:-0.5px;margin:0 0 6px;">Order confirmed</h1>
   <p style="font-size:13px;color:#999;margin:0 0 24px;">Order #${orderRef}</p>
@@ -69,7 +69,7 @@ export async function sendOrderEmail({
 
   <p style="font-size:13px;color:#999;line-height:1.6;margin:0;">
     Questions? Email us at
-    <a href="mailto:itemssycrafts@gmail.com" style="color:#5c7a52;text-decoration:none;">itemssycrafts@gmail.com</a>
+    <a href="mailto:itemssy@email.cz" style="color:#5c7a52;text-decoration:none;">itemssy@email.cz</a>
     — we reply within 24 hours.
   </p>
 </body>

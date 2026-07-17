@@ -8,26 +8,26 @@ import ScrollToTop from './components/ScrollToTop';
 
 export const metadata: Metadata = {
   title: {
-    default: 'ItemssyCrafts — Digital Wall Art Prints',
-    template: '%s | ItemssyCrafts'
+    default: 'ItemssyPrints — Digital Wall Art Prints',
+    template: '%s | ItemssyPrints'
   },
   description: 'Browse 600+ digital wall art prints. Instant download or printed and shipped. Abstract, botanical, typography and more.',
   keywords: ['digital wall art', 'printable wall art', 'instant download prints', 'wall art prints', 'botanical prints', 'abstract art prints'],
-  authors: [{ name: 'ItemssyCrafts' }],
-  creator: 'ItemssyCrafts',
+  authors: [{ name: 'ItemssyPrints' }],
+  creator: 'ItemssyPrints',
   metadataBase: new URL('https://itemssycrafts.com'),
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: 'https://itemssycrafts.com',
-    siteName: 'ItemssyCrafts',
-    title: 'ItemssyCrafts — Digital Wall Art Prints',
+    siteName: 'ItemssyPrints',
+    title: 'ItemssyPrints — Digital Wall Art Prints',
     description: 'Browse 600+ digital wall art prints. Instant download or printed and shipped.',
-    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'ItemssyCrafts Digital Wall Art' }],
+    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'ItemssyPrints Digital Wall Art' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ItemssyCrafts — Digital Wall Art Prints',
+    title: 'ItemssyPrints — Digital Wall Art Prints',
     description: 'Browse 600+ digital wall art prints. Instant download or printed and shipped.',
     images: ['/og-image.jpg'],
   },

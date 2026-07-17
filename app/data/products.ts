@@ -14,8 +14,12 @@ export type Product = {
   image_url?: string;
   images?: string[];
   printful_product_id?: string;
+  printful_variants?: Record<string, string>;
+  printify_variants?: Record<string, string>;
+  gelato_variants?: Record<string, string>;
   digital_file_url?: string;
   active: boolean;
+  created_at?: string;
 };
 
 export type Section = {

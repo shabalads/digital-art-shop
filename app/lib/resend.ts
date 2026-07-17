@@ -1,3 +1,5 @@
+// app/lib/resend.ts
+
 import { Resend } from 'resend';
 import { supabaseAdmin } from './supabase';
 
@@ -81,7 +83,7 @@ export async function sendDigitalOrderEmail({
   const html = `
     <div style="font-family:Inter,Arial,sans-serif;line-height:1.6;color:#1f2937;max-width:640px;margin:0 auto;">
       <h2 style="margin-bottom:8px;color:#2f6538">Your digital download is ready</h2>
-      <p>Thank you for your order from ItemssyCrafts.</p>
+      <p>Thank you for your order from ItemssyPrints.</p>
       <p><strong>Order:</strong> ${orderNumber}</p>
       <ul style="padding-left:18px;margin:12px 0 20px;">${itemRows}</ul>
       <p>If you need help, reply to this email or visit <a href="${siteUrl}" style="color:#2f6538">${siteUrl}</a>.</p>
@@ -90,7 +92,7 @@ export async function sendDigitalOrderEmail({
 
   return sendEmail({
     to: customerEmail,
-    subject: `Your ItemssyCrafts download is ready — Order ${orderNumber}`,
+    subject: `Your ItemssyPrints download is ready — Order ${orderNumber}`,
     html,
     text: `Your download is ready. Order ${orderNumber}. Visit ${siteUrl} for support.`,
   });

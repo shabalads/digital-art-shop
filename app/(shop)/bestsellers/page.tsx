@@ -11,7 +11,7 @@ const TAG_SECTIONS: { tag: string; title: string; desc: string }[] = [
   { tag: 'Bestseller', title: 'Bestsellers', desc: 'Our most popular prints — loved by thousands of customers.' },
   { tag: 'New', title: 'New Arrivals', desc: 'The latest designs, fresh off the (digital) press.' },
   { tag: 'Trending', title: 'Trending Now', desc: 'What everyone\'s adding to their walls right now.' },
-  { tag: 'Staff pick', title: 'Staff Picks', desc: 'Hand-picked favorites from the ItemssyCrafts team.' },
+  { tag: 'Staff pick', title: 'Staff Picks', desc: 'Hand-picked favorites from the ItemssyPrints team.' },
   { tag: 'Top rated', title: 'Top Rated', desc: 'Our highest-reviewed prints, chosen by hand.' },
 ];
 

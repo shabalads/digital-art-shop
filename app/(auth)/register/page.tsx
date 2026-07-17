@@ -7,7 +7,7 @@ export default function RegisterPage() {
     <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
       <div style={{ width: '100%', maxWidth: 380, textAlign: 'center' }}>
         <Link href="/" style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.4px', color: 'var(--text-primary)' }}>
-          Itemssy<span style={{ color: 'var(--accent-soft)', fontWeight: 400 }}>Crafts</span>
+          Itemssy<span style={{ color: 'var(--accent-soft)', fontWeight: 400 }}>Prints</span>
         </Link>
         <div style={{ marginTop: 32, background: 'white', border: '0.5px solid var(--border)', borderRadius: 14, padding: '36px 28px' }}>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', marginBottom: 8 }}>Create account</div>

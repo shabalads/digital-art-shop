@@ -12,6 +12,9 @@ type Order = {
   status: string;
   total: number;
   printful_order_id: string | null;
+  fulfillment_provider: string | null;
+  printify_order_id: string | null;
+  gelato_order_id: string | null;
   created_at: string;
 };
 
@@ -43,7 +46,7 @@ export default function OrdersPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ borderBottom: '0.5px solid var(--border)' }}>
-              {['Date', 'Email', 'Type', 'Total', 'Status', 'Printful ID'].map(h => (
+              {['Date', 'Email', 'Type', 'Total', 'Status', 'Provider', 'Provider Order ID'].map(h => (
                 <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: 'var(--text-secondary)' }}>{h}</th>
               ))}
             </tr>
@@ -58,13 +61,16 @@ export default function OrdersPage() {
                 <td style={{ padding: '12px' }}>
                   <span style={{
                     fontSize: 11, borderRadius: 4, padding: '2px 8px',
-                    background: o.status === 'paid' ? '#DCE8DC' : o.status === 'fulfilled' ? '#E1F5EE' : o.status === 'failed' ? '#FCEBEB' : '#F0EBE3',
-                    color: o.status === 'paid' ? '#3B6D11' : o.status === 'fulfilled' ? '#0F6E56' : o.status === 'failed' ? '#A32D2D' : '#8B7355'
+                    background: o.status === 'paid' ? '#DCE8DC' : o.status === 'fulfilled' ? '#E1F5EE' : o.status === 'partially_fulfilled' ? '#FBF0DC' : o.status === 'failed' ? '#FCEBEB' : '#F0EBE3',
+                    color: o.status === 'paid' ? '#3B6D11' : o.status === 'fulfilled' ? '#0F6E56' : o.status === 'partially_fulfilled' ? '#8B6F1E' : o.status === 'failed' ? '#A32D2D' : '#8B7355'
                   }}>
                     {o.status}
                   </span>
                 </td>
-                <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{o.printful_order_id || '—'}</td>
+                <td style={{ padding: '12px', textTransform: 'capitalize', color: 'var(--text-muted)' }}>{o.fulfillment_provider || (o.printful_order_id ? 'printful' : '—')}</td>
+                <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
+                  {[o.printify_order_id, o.gelato_order_id, o.printful_order_id].filter(Boolean).join(', ') || '—'}
+                </td>
               </tr>
             ))}
           </tbody>

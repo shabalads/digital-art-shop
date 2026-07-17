@@ -5,7 +5,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'About',
-  description: 'Learn about ItemssyCrafts — digital wall art prints designed with care, delivered instantly or shipped to your door.',
+  description: 'Learn about ItemssyPrints — digital wall art prints designed with care, delivered instantly or shipped to your door.',
 };
 
 export default function AboutPage() {
@@ -17,7 +17,7 @@ export default function AboutPage() {
           Art for every home,<br />at an honest price.
         </h1>
         <p style={{ fontSize: 16, color: 'var(--text-secondary)', lineHeight: 1.8, maxWidth: 580 }}>
-          ItemssyCrafts started as a simple idea — beautiful wall art shouldn't cost a fortune or take weeks to arrive. We design every print ourselves and make them available instantly as digital downloads or as premium physical prints shipped to your door.
+          ItemssyPrints started as a simple idea — beautiful wall art shouldn't cost a fortune or take weeks to arrive. We design every print ourselves and make them available instantly as digital downloads or as premium physical prints shipped to your door.
         </p>
       </div>
 
@@ -25,7 +25,7 @@ export default function AboutPage() {
         {[
           { title: 'Designed with care', desc: 'Every piece is created in-house. No stock art, no shortcuts.' },
           { title: 'Instant delivery', desc: 'Digital files arrive in seconds. No waiting, no shipping delays.' },
-          { title: 'Print quality', desc: 'Physical prints on 200gsm premium matte paper via Printful.' },
+          { title: 'Print quality', desc: 'Premium matte paper, printed and shipped by our trusted print partners.' },
           { title: '600+ designs', desc: 'Abstract, botanical, typography, vintage and more — always growing.' },
         ].map(v => (
           <div key={v.title} style={{ background: 'white', border: '0.5px solid var(--border)', borderRadius: 12, padding: '20px' }}>

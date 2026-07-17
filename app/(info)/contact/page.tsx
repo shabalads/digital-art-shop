@@ -5,7 +5,7 @@ import ContactContent from '../../components/ContactContent';
 
 export const metadata: Metadata = {
   title: 'Contact',
-  description: 'Get in touch with ItemssyCrafts. Questions about orders, downloads, or anything else.',
+  description: 'Get in touch with ItemssyPrints. Questions about orders, downloads, or anything else.',
 };
 
 export default function ContactPage() {

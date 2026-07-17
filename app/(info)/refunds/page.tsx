@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Refund Policy',
-  description: 'ItemssyCrafts refund policy for digital downloads and physical prints.',
+  description: 'ItemssyPrints refund policy for digital downloads and physical prints.',
 };
 
 export default function RefundsPage() {
@@ -18,11 +18,10 @@ export default function RefundsPage() {
         <p style={{ fontSize: 15, color: 'var(--text-secondary)' }}>Last updated June 2026</p>
       </div>
 
-      {[
-        { title: 'Digital downloads', body: 'Due to the nature of digital products, we do not offer refunds on digital downloads once the files have been delivered. Please review product previews carefully before purchasing. If you experience a technical issue with your files, contact us and we will resolve it immediately.' },
-        { title: 'Physical prints', body: 'If your physical print arrives damaged, defective, or incorrect, we will replace it or issue a full refund at no cost to you. Please contact us within 14 days of delivery with a photo of the issue. We do not accept returns for change of mind once production has started.' },
-        { title: 'Order errors', body: 'If you made an error on your order, please contact us within 1 hour of placing the order. We can make changes or cancel before production begins.' },
-        { title: 'How to request a refund', body: 'Email us at itemssycrafts@gmail.com with your order number, a description of the issue, and any relevant photos. We aim to respond within 24 hours.' },
+{[
+        { title: 'Digital downloads', body: 'Due to the nature of digital products, we do not offer refunds on digital downloads once the files have been delivered. Please review product previews carefully before purchasing. If you experience any problem with your files, message us and we\'ll make it right.' },
+        { title: 'Physical prints', body: 'If your physical print arrives damaged, defective, or incorrect, you\'re eligible for a replacement or a full refund at no cost to you. Message us with a photo of the issue and we\'ll take care of it. We do not accept returns for change of mind once production has started.' },
+        { title: 'How to request a refund', body: 'Email us at itemssy@email.cz with your order number, a description of the issue, and any relevant photos. We respond within 24 hours.' },
         { title: 'Processing time', body: 'Approved refunds are processed within 5–10 business days. Stripe refunds typically appear within 5–7 business days.' },
       ].map(s => (
         <div key={s.title} style={{ marginBottom: 40, paddingBottom: 40, borderBottom: '0.5px solid var(--border)' }}>

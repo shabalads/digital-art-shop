@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import PageWrapper from './PageWrapper';
+import MessageWidget from './MessageWidget';
 
 export default function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -14,12 +15,13 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
   if (isDashboard) {
     return <>{children}</>;
   }
-
-  return (
+  
+return (
     <>
       <Navbar />
       <main><PageWrapper>{children}</PageWrapper></main>
       <Footer />
+      <MessageWidget />
     </>
   );
 }

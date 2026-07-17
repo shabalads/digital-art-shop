@@ -10,8 +10,45 @@ export async function GET(req: NextRequest) {
   const q = searchParams.get('q');
   const badge = searchParams.get('badge');
   const tag = searchParams.get('tag');
-  const section = searchParams.get('section'); // ← new
+const section = searchParams.get('section'); // ← new
+  const room = searchParams.get('room'); // ← new: filter by room (Bathroom, Bedroom, Kitchen, etc.)
+  const relatedTo = searchParams.get('related_to');
   const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 2000);
+
+  if (relatedTo) {
+    const { data: sourceProduct, error: sourceError } = await supabaseAdmin
+      .from('products')
+      .select('related_product_ids')
+      .eq('id', relatedTo)
+      .single();
+
+    if (sourceError) return NextResponse.json({ error: sourceError.message }, { status: 500 });
+
+    const manualIds: string[] = sourceProduct?.related_product_ids || [];
+
+    if (manualIds.length > 0) {
+      const { data: relatedData, error: relatedError } = await supabaseAdmin
+        .from('products')
+        .select('*')
+        .in('id', manualIds)
+        .eq('active', true)
+        .is('deleted_at', null);
+
+      if (relatedError) return NextResponse.json({ error: relatedError.message }, { status: 500 });
+
+      const byId = new Map((relatedData || []).map((p: any) => [p.id, p]));
+      const ordered = manualIds.map(mid => byId.get(mid)).filter(Boolean);
+      return NextResponse.json({ products: ordered });
+    }
+
+    const { data: fuzzyRelated, error: fuzzyError } = await supabaseAdmin.rpc('related_products_by_similarity', {
+      product_id: relatedTo,
+      result_limit: 4,
+    });
+
+    if (fuzzyError) return NextResponse.json({ error: fuzzyError.message }, { status: 500 });
+    return NextResponse.json({ products: fuzzyRelated || [] });
+  }
 
   if (id) {
     const { data, error } = await supabaseAdmin
@@ -22,9 +59,9 @@ export async function GET(req: NextRequest) {
 
   const showTrashed = searchParams.get('trashed') === 'true';
 
-  let query = supabaseAdmin
+let query = supabaseAdmin
     .from('products').select('*')
-    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('home_sort_order', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -38,6 +75,7 @@ export async function GET(req: NextRequest) {
   if (badge) query = query.eq('badge', badge);
   if (tag) query = query.or(`tags.cs.{${tag}},badge.eq.${tag}`);
   if (section) query = query.contains('section_ids', [section]); // ← new
+  if (room) query = query.eq('room', room); // ← new
   if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
 
   const { data, error } = await query;

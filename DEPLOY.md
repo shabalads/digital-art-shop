@@ -1,4 +1,4 @@
-# ItemssyCrafts — Deploy Checklist
+# ItemssyPrints — Deploy Checklist
 
 ## 1. Supabase — run schema
 

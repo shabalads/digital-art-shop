@@ -106,13 +106,13 @@ function handleSearch(e: React.KeyboardEvent) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 13, fontWeight: 700, color: 'white', letterSpacing: '-0.3px',
             flexShrink: 0
-          }}>IC</div>
+          }}>IP</div>
           <span style={{
             fontSize: 19, fontWeight: 700, letterSpacing: '-0.6px',
             color: '#1E1810',
             fontFamily: 'Georgia, serif'
           }}>
-            Itemssy<span style={{ color: '#8B6F4E', fontWeight: 400, fontStyle: 'italic' }}>Crafts</span>
+            Itemssy<span style={{ color: '#8B6F4E', fontWeight: 400, fontStyle: 'italic' }}>Prints</span>
           </span>
         </Link>
 

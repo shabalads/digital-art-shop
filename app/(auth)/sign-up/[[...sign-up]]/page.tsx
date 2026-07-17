@@ -8,12 +8,12 @@ export default function SignUpPage() {
     <div style={{ minHeight: '85vh', background: '#FAF8F5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
       <Link href="/" style={{ marginBottom: 32, textDecoration: 'none' }}>
         <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.6px', color: '#1E1810', fontFamily: 'Georgia, serif' }}>
-          Itemssy<span style={{ color: '#8B6F4E', fontWeight: 400, fontStyle: 'italic' }}>Crafts</span>
+          Itemssy<span style={{ color: '#8B6F4E', fontWeight: 400, fontStyle: 'italic' }}>Prints</span>
         </span>
       </Link>
       <SignUp
-appearance={{
-variables: {
+        appearance={{
+          variables: {
             colorPrimary: '#2C2420',
             colorBackground: '#FFFFFF',
             borderRadius: '10px',

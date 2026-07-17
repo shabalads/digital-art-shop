@@ -23,7 +23,7 @@ export default function DashboardPage() {
         <div>
           <div style={{ fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--accent-soft)', marginBottom: 10, fontWeight: 500 }}>Admin</div>
           <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-1px', marginBottom: 6 }}>Dashboard</h1>
-          <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Manage your ItemssyCrafts shop</p>
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Manage your ItemssyPrints shop</p>
         </div>
         <Link href="/" style={{
           fontSize: 13, color: 'var(--accent-soft)', textDecoration: 'none',
@@ -41,10 +41,11 @@ export default function DashboardPage() {
           { href: '/dashboard/orders', icon: '↓', label: 'Orders', desc: 'View and track all orders', action: 'View orders' },
           { href: '/dashboard/import', icon: '⊕', label: 'Import', desc: 'Bulk import from Etsy CSV', action: 'Import listings' },
           { href: '/shop', icon: '◈', label: 'Storefront', desc: 'See your live shop', action: 'View shop' },
-          { href: '/dashboard/sections', icon: '▦', label: 'Sections', desc: 'Curated product groups for homepage', action: 'Manage sections' },
           { href: '/dashboard/mockups', icon: '◻', label: 'Mockups', desc: 'Link room photos to products', action: 'Manage mockups' },
           { href: '/dashboard/bestsellers', icon: '★', label: 'Bestsellers', desc: 'Manage and reorder bestsellers', action: 'Manage bestsellers' },
           { href: '/dashboard/categories', icon: '▤', label: 'Categories', desc: 'Add, rename, or delete categories', action: 'Manage categories' },
+          { href: '/dashboard/products/reorder', icon: '⠿', label: 'Reorder', desc: 'Drag to set homepage & shop print order', action: 'Reorder prints' },
+          { href: '/dashboard/messages', icon: '✉', label: 'Messages', desc: 'Read and reply to customer messages', action: 'View inbox' },
         ].map(card => (
           <Link key={card.href} href={card.href} style={{
             background: 'white', border: '0.5px solid var(--border-card)',

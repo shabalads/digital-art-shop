@@ -16,7 +16,7 @@ export default function Footer() {
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: isMobile ? 32 : 40 }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.3px', marginBottom: 10 }}>
-            Itemssy<span style={{ color: 'var(--accent-soft)', fontWeight: 400 }}>Crafts</span>
+            Itemssy<span style={{ color: 'var(--accent-soft)', fontWeight: 400 }}>Prints</span>
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7 }}>
             Digital wall art prints for every home.<br />Instant download or printed & shipped.
@@ -45,7 +45,7 @@ export default function Footer() {
         </div>
       </div>
       <div style={{ maxWidth: 1200, margin: '32px auto 0', paddingTop: 24, borderTop: '0.5px solid var(--border)', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 8 : 0, justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)' }}>
-        <span>© 2026 ItemssyCrafts. All rights reserved.</span>
+        <span>© 2026 ItemssyPrints. All rights reserved.</span>
         <span>Digital prints · Instant delivery</span>
       </div>
     </footer>

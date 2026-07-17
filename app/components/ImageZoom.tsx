@@ -2,14 +2,62 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+
+const ZOOM_FACTOR = 2.2;
 
 export default function ImageZoom({ src, alt, bg }: { src?: string; alt: string; bg: string }) {
   const [zoomed, setZoomed] = useState(false);
+  const [scale, setScale] = useState(1);
+  const [dims, setDims] = useState<{ width: number; height: number } | null>(null);
+  const [pendingScroll, setPendingScroll] = useState<{ xRatio: number; yRatio: number } | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  function closeZoom() {
+    setZoomed(false);
+    setScale(1);
+    setDims(null);
+  }
+
+  function handleImageClick(e: React.MouseEvent<HTMLImageElement>) {
+    e.stopPropagation();
+
+    if (scale === 1) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const xRatio = (e.clientX - rect.left) / rect.width;
+      const yRatio = (e.clientY - rect.top) / rect.height;
+
+      setDims({ width: rect.width * ZOOM_FACTOR, height: rect.height * ZOOM_FACTOR });
+      setScale(ZOOM_FACTOR);
+      setPendingScroll({ xRatio, yRatio });
+    } else {
+      setScale(1);
+      setDims(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!pendingScroll || !dims || !containerRef.current) return;
+    const container = containerRef.current;
+
+    const targetX = dims.width * pendingScroll.xRatio - container.clientWidth / 2;
+    const targetY = dims.height * pendingScroll.yRatio - container.clientHeight / 2;
+
+    container.scrollTo({
+      left: Math.max(0, targetX),
+      top: Math.max(0, targetY),
+      behavior: 'auto',
+    });
+
+    setPendingScroll(null);
+  }, [dims, pendingScroll]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setZoomed(false);
+      if (e.key === 'Escape') closeZoom();
     }
     if (zoomed) {
       document.addEventListener('keydown', onKey);
@@ -58,32 +106,52 @@ export default function ImageZoom({ src, alt, bg }: { src?: string; alt: string;
         )}
       </div>
 
-      {zoomed && (
+      {zoomed && createPortal(
         <div
-          onClick={() => setZoomed(false)}
+          ref={containerRef}
+          onClick={closeZoom}
           style={{
             position: 'fixed', inset: 0, zIndex: 9999,
             background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'zoom-out', padding: 32
+            display: 'flex',
+            alignItems: scale > 1 ? 'flex-start' : 'center',
+            justifyContent: scale > 1 ? 'flex-start' : 'center',
+            overflow: scale > 1 ? 'auto' : 'hidden',
+            cursor: scale > 1 ? 'zoom-out' : 'zoom-in',
+            padding: 32
           }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ position: 'relative', maxWidth: '88vw', maxHeight: '88vh' }}
+            style={{
+              position: 'relative',
+              maxWidth: scale > 1 ? 'none' : '88vw',
+              maxHeight: scale > 1 ? 'none' : '88vh',
+              margin: scale > 1 ? 'auto' : undefined
+            }}
           >
             <img
+              ref={imgRef}
               src={src}
               alt={alt}
-              style={{
-                maxWidth: '100%', maxHeight: '88vh',
+              onClick={handleImageClick}
+              style={dims ? {
+                width: dims.width,
+                height: dims.height,
                 objectFit: 'contain', borderRadius: 12,
                 boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
-                display: 'block'
+                display: 'block',
+                cursor: 'zoom-out'
+              } : {
+                maxWidth: '88vw', maxHeight: '88vh',
+                objectFit: 'contain', borderRadius: 12,
+                boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+                display: 'block',
+                cursor: 'zoom-in'
               }}
             />
             <button
-              onClick={() => setZoomed(false)}
+              onClick={closeZoom}
               style={{
                 position: 'absolute', top: -14, right: -14,
                 width: 32, height: 32, borderRadius: '50%',
@@ -94,10 +162,13 @@ export default function ImageZoom({ src, alt, bg }: { src?: string; alt: string;
               }}
             >×</button>
           </div>
-          <div style={{ position: 'absolute', bottom: 24, left: 0, right: 0, textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-            Click anywhere or press Esc to close
-          </div>
-        </div>
+          {scale === 1 && (
+            <div style={{ position: 'absolute', bottom: 24, left: 0, right: 0, textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
+              Click anywhere or press Esc to close
+            </div>
+          )}
+        </div>,
+        document.body
       )}
     </>
   );

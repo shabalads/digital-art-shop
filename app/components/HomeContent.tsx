@@ -21,26 +21,27 @@ const moods = [
 const HOME_PAGE_SIZE = 40;
 
 const MOCKUP_DEFAULTS = [
-  { key: 'bathroom', src: '/mockups/Image 2.png', room: 'Bathroom', desc: 'A coastal print bringing calm to an everyday space' },
-  { key: 'hallway', src: '/mockups/Image 3.png', room: 'Hallway', desc: 'A statement print that sets the tone the moment you walk in' },
-  { key: 'mantle', src: '/mockups/Image 7.png', room: 'Mantle', desc: 'A framed print as the centrepiece of a styled display' },
-  { key: 'gallery', src: '/mockups/Image 8.png', room: 'Gallery wall', desc: 'Mix and match prints to build a wall that tells your story' },
-  { key: 'nursery', src: '/mockups/Image 9.png', room: 'Nursery', desc: 'Gentle prints that grow with your little one' },
-  { key: 'living', src: '/mockups/Image 5.png', room: 'Living room', desc: 'The right print above a sofa ties the whole room together' },
+  { key: 'bathroom', src: '/mockups/Image 2.png', room: 'Bathroom', roomFilter: 'Bathroom', desc: 'A coastal print bringing calm to an everyday space' },
+  { key: 'hallway', src: '/mockups/Image 3.png', room: 'Hallway', roomFilter: 'Hallway', desc: 'A statement print that sets the tone the moment you walk in' },
+  { key: 'mantle', src: '/mockups/Image 7.png', room: 'Living room', roomFilter: 'Living Room', desc: 'A framed print as the centrepiece of a styled display' },
+  { key: 'gallery', src: '/mockups/Image 8.png', room: 'Bedroom', roomFilter: 'Bedroom', desc: 'Mix and match prints to build a wall that tells your story' },
+  { key: 'nursery', src: '/mockups/Image 9.png', room: 'Bedroom', roomFilter: 'Bedroom', desc: 'Gentle prints that grow with your little one' },
+  { key: 'living', src: '/mockups/Image 5.png', room: 'Living room', roomFilter: 'Living Room', desc: 'The right print above a sofa ties the whole room together' },
 ];
 
 export default function HomeContent() {
   const [products, setProducts] = useState<Product[]>(allProducts);
-  const [activeCategory, setActiveCategory] = useState('All');
+  const [activeCategory, setActiveCategory] = useState('');
   const [sort, setSort] = useState('featured');
   const [loading, setLoading] = useState(false);
 const [bestsellers, setBestsellers] = useState<Product[]>(bestsellerProducts);
+const [recentlyAdded, setRecentlyAdded] = useState<Product[]>([]);
 
 const shopRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [mockupLinks, setMockupLinks] = useState<Record<string, string>>({});
-  const [sections, setSections] = useState<Array<{ id: string; name: string; products: Product[] }>>([]);
-  const [shopCategories, setShopCategories] = useState<string[]>(['All']);
+const [mockupLinks, setMockupLinks] = useState<Record<string, string>>({});
+const [shopCategories, setShopCategories] = useState<Array<{ id: string; name: string }>>([{ id: '', name: 'All' }]);
+const [moodSections, setMoodSections] = useState<Array<{ id: string; name: string; product_count: number }>>([]);
 
 useEffect(() => {
     fetch('/api/settings?key=mockup_links')
@@ -48,38 +49,23 @@ useEffect(() => {
       .then(data => { if (data.value) setMockupLinks(data.value); });
   }, []);
 
-  useEffect(() => {
-    async function fetchSections() {
-      const [secRes, prodRes] = await Promise.all([
-        fetch('/api/sections'),
-        fetch('/api/products?limit=1000'),
-      ]);
-      const secData = await secRes.json();
-      const prodData = await prodRes.json();
-      const allProds: Product[] = prodData.products || [];
-      const built = (secData.sections || [])
-        .map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          products: allProds.filter(p => (p.section_ids || []).includes(s.id)),
-        }))
-        .filter((s: any) => s.products.length > 0);
-      setSections(built);
-    }
-    fetchSections();
-  }, []);
-
-  useEffect(() => {
-    fetch('/api/categories')
+useEffect(() => {
+    fetch('/api/sections')
       .then(r => r.json())
       .then(data => {
-        const names = (data.categories || []).map((c: any) => c.name);
-        setShopCategories(['All', ...names]);
+        const sections = data.sections || [];
+        const opts = sections.map((s: any) => ({ id: s.id, name: s.name }));
+        setShopCategories([{ id: '', name: 'All' }, ...opts]);
+
+        const topSix = [...sections]
+          .sort((a: any, b: any) => (b.product_count || 0) - (a.product_count || 0))
+          .slice(0, 6);
+        setMoodSections(topSix);
       })
       .catch(() => {});
   }, []);
 
-  const mockups = MOCKUP_DEFAULTS.map(m => ({ ...m, link: mockupLinks[m.key] || '' }));
+  const mockups = MOCKUP_DEFAULTS.map(m => ({ ...m, link: mockupLinks[m.key] || `/shop?room=${encodeURIComponent(m.roomFilter)}` }));
 
 useEffect(() => {
     async function fetchBestsellers() {
@@ -109,14 +95,25 @@ useEffect(() => {
     fetchBestsellers();
   }, []);
   
-  const recentlyAdded = [...allProducts].reverse().slice(0, 6);
+useEffect(() => {
+    async function fetchRecentlyAdded() {
+      try {
+        const res = await fetch('/api/products?tag=New&limit=6');
+        const data = await res.json();
+        if (data.products?.length > 0) setRecentlyAdded(data.products.slice(0, 6));
+      } catch {
+        // leave empty on failure
+      }
+    }
+    fetchRecentlyAdded();
+  }, []);
 
   useEffect(() => {
     async function fetch_() {
       setLoading(true);
       try {
         const params = new URLSearchParams();
-        if (activeCategory !== 'All') params.set('category', activeCategory.toLowerCase());
+        if (activeCategory) params.set('section', activeCategory);
         const res = await fetch(`/api/products?${params.toString()}&limit=1000`);
         const data = await res.json();
         if (data.products?.length > 0) setProducts(data.products);
@@ -171,7 +168,7 @@ useEffect(() => {
           {[
             { label: 'Instant download', desc: 'Files delivered immediately after payment' },
             { label: '5 sizes per print', desc: 'A3, A4, A5, 8×10" and 5×7" in every order' },
-            { label: 'Printed & shipped', desc: 'Premium 200gsm matte, fulfilled by Printful' },
+            { label: 'Printed & shipped', desc: 'Premium matte, fulfilled by our trusted print partners' },
           ].map((v, i) => (
             <div key={v.label} style={{ textAlign: 'center', padding: '18px 24px', borderLeft: i > 0 ? '0.5px solid var(--border)' : 'none' }}>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{v.label}</div>
@@ -197,40 +194,59 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ── SHOP BY MOOD ── */}
-
-<div style={{ background: 'white', borderTop: '0.5px solid var(--border)', borderBottom: '0.5px solid var(--border)', padding: '64px clamp(20px, 4vw, 40px)', marginBottom: 80 }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <div style={{ marginBottom: 36, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8, fontWeight: 500 }}>Find your style</div>
-            <h2 style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, letterSpacing: '-0.5px' }}>Shop by mood</h2>
+{/* ── SHOP BY MOOD ── */}
+      <div style={{ background: 'white', borderTop: '0.5px solid var(--border)', borderBottom: '0.5px solid var(--border)', padding: '80px clamp(20px, 4vw, 40px)', marginBottom: 80 }}>
+        <div style={{ maxWidth: 980, margin: '0 auto' }}>
+          <div style={{ marginBottom: 44, textAlign: 'center' }}>
+            <div style={{ fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10, fontWeight: 500 }}>Find your style</div>
+            <h2 style={{ fontSize: 'clamp(24px, 3.5vw, 32px)', fontWeight: 700, letterSpacing: '-0.5px' }}>Shop by mood</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
-
-            {moods.map(mood => (
-              <Link key={mood.label} href={`/shop?cat=${mood.cat}`} style={{ textDecoration: 'none' }}>
-                <div style={{
-                  background: mood.bg, borderRadius: 12, padding: '28px 20px',
-                  cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s',
-                  aspectRatio: '4/3', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end'
-                }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)';
-                    (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-                    (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-                  }}
-                >
-                  <div style={{ fontSize: 14, fontWeight: 700, color: mood.color, marginBottom: 4, letterSpacing: '-0.2px' }}>{mood.label}</div>
-                  <div style={{ fontSize: 12, color: mood.color, opacity: 0.7, lineHeight: 1.4 }}>{mood.desc}</div>
-                </div>
-              </Link>
-            ))}
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
+            {(() => {
+              const MOOD_META: Record<string, { label: string; desc: string; bg: string; color: string }> = {
+                'Wildflower & Botanical': { label: 'Fresh & Natural', desc: 'Wildflowers, greenery, organic charm', bg: '#D8E4D0', color: '#3B5E3C' },
+                'Moody & Dark Academia': { label: 'Bold & Dramatic', desc: 'Strong shapes, deep contrast', bg: '#2C2420', color: '#E8DDD0' },
+                'Coastal & Seaside': { label: 'Calm & Minimal', desc: 'Clean lines, quiet spaces', bg: '#E8E4DC', color: '#6B5F52' },
+                'Dopamine & Colorful': { label: 'Bold & Colorful', desc: 'Vivid color, maximalist energy', bg: '#E8E4EC', color: '#4B3B6B' },
+                'Animal Wall Art': { label: 'Wild & Whimsical', desc: 'Creatures, critters, playful character', bg: '#E4D8C0', color: '#6B5020' },
+                'Feminine & Coquette': { label: 'Soft & Feminine', desc: 'Blush tones, romantic charm', bg: '#EDE0D0', color: '#8B5E3C' },
+              };
+              const FALLBACK_PALETTE = [
+                { bg: '#E8E4DC', color: '#6B5F52' },
+                { bg: '#EDE0D0', color: '#8B5E3C' },
+                { bg: '#2C2420', color: '#E8DDD0' },
+                { bg: '#D8E4D0', color: '#3B5E3C' },
+                { bg: '#E4D8C0', color: '#6B5020' },
+                { bg: '#E8E4EC', color: '#4B3B6B' },
+              ];
+              return moodSections.map((section, i) => {
+                const meta = MOOD_META[section.name] || { label: section.name, desc: `${section.product_count} designs`, ...FALLBACK_PALETTE[i % FALLBACK_PALETTE.length] };
+                return (
+                  <Link key={section.id} href={`/shop?section=${section.id}`} style={{ textDecoration: 'none' }}>
+                    <div style={{
+                      background: meta.bg, borderRadius: 12, padding: '24px 18px',
+                      cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s',
+                      aspectRatio: '4/3', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end'
+                    }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)';
+                        (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)';
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                        (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+                      }}
+                    >
+                      <div style={{ fontSize: 14, fontWeight: 700, color: meta.color, marginBottom: 4, letterSpacing: '-0.2px' }}>{meta.label}</div>
+                      <div style={{ fontSize: 12, color: meta.color, opacity: 0.7, lineHeight: 1.35 }}>{meta.desc}</div>
+                    </div>
+                  </Link>
+                );
+              });
+            })()}
           </div>
         </div>
-      </div>
+</div>
 
       {/* ── LOOKS ON YOUR WALL ── */}
 <div style={{ padding: '0 clamp(20px, 4vw, 40px) 80px', maxWidth: 1280, margin: '0 auto' }}>
@@ -287,24 +303,7 @@ useEffect(() => {
         </div>
 </div>
 
-{/* ── SECTIONS ── */}
-      {sections.map(section => (
-        <div key={section.id} style={{ borderTop: '0.5px solid var(--border)', background: 'white', padding: '56px 0 64px' }}>
-          <div style={{ padding: '0 clamp(20px, 4vw, 40px)', maxWidth: 1280, margin: '0 auto', marginBottom: 28 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <h2 style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, letterSpacing: '-0.5px' }}>{section.name}</h2>
-              <Link href={`/shop?section=${section.id}`} style={{ fontSize: 13, color: 'var(--accent-soft)' }}>View all →</Link>
-            </div>
-          </div>
-          <div style={{ padding: '0 clamp(20px, 4vw, 40px)', maxWidth: 1280, margin: '0 auto' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
-              {section.products.slice(0, 5).map(p => <ProductCard key={p.id} product={p} />)}
-            </div>
-          </div>
-        </div>
-      ))}
-
-      {/* ── RECENTLY ADDED ── */}
+{/* ── RECENTLY ADDED ── */}
 <div style={{ borderTop: '0.5px solid var(--border)', background: 'white', padding: '64px clamp(20px, 4vw, 40px) 72px', marginBottom: 0 }}>
   <div style={{ maxWidth: 1280, margin: '0 auto' }}>
     <div style={{ marginBottom: 28 }}>
@@ -359,15 +358,15 @@ useEffect(() => {
           </div>
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 36 }}>
-            {shopCategories.map(cat => (
-              <button key={cat} onClick={() => setActiveCategory(cat)} style={{
-                background: activeCategory === cat ? 'var(--accent)' : 'var(--bg-pill)',
-                color: activeCategory === cat ? 'white' : 'var(--text-secondary)',
-                border: `0.5px solid ${activeCategory === cat ? 'var(--accent)' : 'var(--border)'}`,
+{shopCategories.map(cat => (
+              <button key={cat.id || 'all'} onClick={() => setActiveCategory(cat.id)} style={{
+                background: activeCategory === cat.id ? 'var(--accent)' : 'var(--bg-pill)',
+                color: activeCategory === cat.id ? 'white' : 'var(--text-secondary)',
+                border: `0.5px solid ${activeCategory === cat.id ? 'var(--accent)' : 'var(--border)'}`,
                 borderRadius: 20, padding: '7px 18px', fontSize: 13,
-                cursor: 'pointer', fontWeight: activeCategory === cat ? 500 : 400,
+                cursor: 'pointer', fontWeight: activeCategory === cat.id ? 500 : 400,
                 transition: 'all 0.15s'
-              }}>{cat}</button>
+              }}>{cat.name}</button>
             ))}
           </div>
 
@@ -381,7 +380,7 @@ useEffect(() => {
           {!loading && sorted.length === 0 && (
             <div style={{ textAlign: 'center', padding: '60px 0' }}>
               <p style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 16 }}>No prints found in this category.</p>
-              <button onClick={() => setActiveCategory('All')} style={{
+              <button onClick={() => setActiveCategory('')} style={{
                 background: 'var(--accent)', color: 'white', border: 'none',
                 borderRadius: 24, padding: '10px 24px', fontSize: 14, cursor: 'pointer'
               }}>Show all</button>
@@ -390,7 +389,7 @@ useEffect(() => {
 
           {!loading && sorted.length > HOME_PAGE_SIZE && (
             <div style={{ textAlign: 'center', marginTop: 40 }}>
-              <Link href={activeCategory === 'All' ? '/shop' : `/shop?cat=${activeCategory.toLowerCase()}`} style={{
+              <Link href={activeCategory ? `/shop?section=${activeCategory}` : '/shop'} style={{
                 display: 'inline-block', background: 'var(--accent)', color: 'white',
                 borderRadius: 24, padding: '13px 32px', fontSize: 14, fontWeight: 500,
                 textDecoration: 'none'

@@ -19,19 +19,54 @@ const DIGITAL_SIZES = [
   { ratio: '11:14', label: 'Portrait', sizes: ['11×14"', '22×28"'] },
 ];
 
+// `key` here MUST match the size keys used in products.printful_variants
+// (written by scripts/printful-bulk-create.js) — this is how we look up the
+// right printful_variant_id for whatever size the customer picks.
 const PHYSICAL_SIZES = [
-  { label: '5×7"', price: 19.99, popular: false },
-  { label: '8×10"', price: 24.99, popular: true },
-  { label: '8×12"', price: 26.99, popular: false },
-  { label: '11×14"', price: 34.99, popular: true },
-  { label: 'A4', price: 22.99, popular: false },
-  { label: 'A3', price: 32.99, popular: false },
-  { label: '16×20"', price: 44.99, popular: false },
-  { label: '18×24"', price: 54.99, popular: false },
-  { label: 'A2', price: 49.99, popular: false },
-  { label: '24×36"', price: 69.99, popular: false },
+  { label: '5×7"', key: '5x7', price: 19.99, popular: false },
+  { label: '8×10"', key: '8x10', price: 24.99, popular: true },
+  { label: '8×12"', key: '8x12', price: 26.99, popular: false },
+  { label: '11×14"', key: '11x14', price: 34.99, popular: true },
+  { label: 'A4', key: 'a4', price: 22.99, popular: false },
+  { label: 'A3', key: 'a3', price: 32.99, popular: false },
+  { label: '16×20"', key: '16x20', price: 44.99, popular: false },
+  { label: '18×24"', key: '18x24', price: 54.99, popular: false },
+  { label: 'A2', key: 'a2', price: 49.99, popular: false },
+  { label: '24×36"', key: '24x36', price: 69.99, popular: false },
 ];
 
+function ProductBadge({ tag, style, description }: { tag: string; style: { color: string; icon: React.ReactNode }; description: string }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ position: 'absolute', top: 14, left: 14, zIndex: 3 }}
+    >
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 7,
+        background: 'linear-gradient(135deg, #FDFBF6, #F3EBDA)',
+        border: `1px solid ${style.color}45`,
+        borderRadius: 999, padding: '6px 14px',
+        boxShadow: '0 1px 4px rgba(156,122,60,0.18)'
+      }}>
+        <span style={{ display: 'flex' }}>{style.icon}</span>
+        <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: style.color }}>{tag}</span>
+      </div>
+      {hovered && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', left: 0,
+          background: 'white', borderRadius: 8, padding: '11px 14px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.12)', width: 210,
+          fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-secondary)',
+          zIndex: 10
+        }}>
+          {description}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -41,9 +76,21 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 const [type, setType] = useState<'digital' | 'physical'>('digital');
   const [activeImage, setActiveImage] = useState<string | undefined>(undefined);
   const [selectedSize, setSelectedSize] = useState(PHYSICAL_SIZES[1].label); // default 8×10"
-  const [adding, setAdding] = useState(false);
+const [adding, setAdding] = useState(false);
   const [toast, setToast] = useState(false);
+  const [digitalInCart, setDigitalInCart] = useState(0);
   const isMobile = useIsMobile();
+
+  function countDigitalInCart() {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    setDigitalInCart(cart.filter((i: any) => i.type === 'digital').length);
+  }
+
+  useEffect(() => {
+    countDigitalInCart();
+    window.addEventListener('storage', countDigitalInCart);
+    return () => window.removeEventListener('storage', countDigitalInCart);
+  }, []);
 
 useEffect(() => {
     if (product?.image_url) setActiveImage(product.image_url);
@@ -65,7 +112,7 @@ useEffect(() => {
         if (data.products?.[0]) {
           const p = data.products[0];
           setProduct(p);
-          const relRes = await fetch(`/api/products?category=${p.category}&limit=5`);
+const relRes = await fetch(`/api/products?related_to=${p.id}`);
           const relData = await relRes.json();
           setRelated((relData.products || []).filter((r: Product) => r.id !== id).slice(0, 4));
         } else {
@@ -134,6 +181,36 @@ function cleanDescription(raw: string): string {
     const cartId = `${product!.id}-${type}-${type === 'physical' ? activePhysicalSize.label : ''}`;
     const existing = cart.find((i: any) => i.cartId === cartId);
     if (existing && type === 'digital') { setToast(true); return; }
+
+    // For physical items, look up this product+size's variant/product IDs for
+    // ALL THREE providers. printful_variants is populated only if this
+    // product was synced under the old Printful flow (kept as fallback
+    // reference, not actively used by the webhook anymore). printify_variants
+    // only has entries for the 5 sizes Printify's blueprint actually offers
+    // (scripts/printify-bulk-create.js) — missing here is EXPECTED and normal
+    // for the other 5 sizes, not an error. gelato_variants should have an
+    // entry for every one of our 10 sizes (scripts/gelato-bulk-create.js) —
+    // missing here means that product hasn't been synced to Gelato yet.
+    let printfulVariantId: string | null = null;
+    let printifyVariantId: string | null = null;
+    let gelatoVariantId: string | null = null;
+    if (type === 'physical') {
+      printfulVariantId = product!.printful_variants?.[activePhysicalSize.key] ?? null;
+      printifyVariantId = product!.printify_variants?.[activePhysicalSize.key] ?? null;
+      gelatoVariantId = product!.gelato_variants?.[activePhysicalSize.key] ?? null;
+
+      if (!gelatoVariantId) {
+        console.warn(
+          `No Gelato productUid found for product ${product!.id} size "${activePhysicalSize.key}" — ` +
+          `this product may not have been synced to Gelato yet (see scripts/gelato-bulk-create.js). ` +
+          `Non-US/CA orders (and US/CA orders for sizes Printify doesn't offer) will fail to fulfill if purchased.`
+        );
+      }
+      // Not warning on a missing printifyVariantId — absence is expected for
+      // 5×7, 8×10, A4, A3, A2, which always route to Gelato regardless of
+      // country (see app/api/webhook/route.ts PRINTIFY_ELIGIBLE_COUNTRIES).
+    }
+
     if (existing) existing.quantity += 1;
 else cart.push({
       cartId,
@@ -142,17 +219,21 @@ else cart.push({
       price,
       type,
       size: type === 'physical' ? activePhysicalSize.label : null,
+      printful_variant_id: printfulVariantId,
+      printify_variant_id: printifyVariantId,
+      gelato_variant_id: gelatoVariantId,
       quantity: 1,
       bg_color: product!.bg_color,
       image_url: product!.image_url,
       badge: product!.badge
     });
-    
-    localStorage.setItem('cart', JSON.stringify(cart));
+
+localStorage.setItem('cart', JSON.stringify(cart));
     window.dispatchEvent(new Event('storage'));
+    countDigitalInCart();
     setAdding(true);
     setToast(true);
-    setTimeout(() => setAdding(false), 1000);
+    setTimeout(() => setAdding(false), 1800);
   }
 
   // Clean title — truncate at first pipe, dash or comma after ~50 chars
@@ -183,8 +264,7 @@ function cleanTitle(raw: string): string {
       {/* Breadcrumb */}
       <div style={{ padding: '16px 40px', borderBottom: '0.5px solid var(--border)', fontSize: 13, color: 'var(--text-muted)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <Link href="/" style={{ color: 'var(--text-muted)' }}>Home</Link><span>›</span>
-        <Link href="/shop" style={{ color: 'var(--text-muted)' }}>Shop</Link><span>›</span>
-        <Link href={`/shop?cat=${product.category}`} style={{ color: 'var(--text-muted)', textTransform: 'capitalize' }}>{product.category}</Link><span>›</span>
+<Link href="/shop" style={{ color: 'var(--text-muted)' }}>Shop</Link><span>›</span>
         <span style={{ color: 'var(--text-primary)' }}>{displayTitle}</span>
       </div>
 
@@ -195,25 +275,29 @@ function cleanTitle(raw: string): string {
 <div style={{ position: isMobile ? 'relative' : 'sticky', top: 80 }}>
           <div style={{ position: 'relative' }}>
             <ImageZoom src={activeImage || product.image_url} alt={displayTitle} bg={product.bg_color} />
-            <HeartButton productId={product.id} />
+<HeartButton productId={product.id} />
             {(() => {
-              const GOLD = '#9C7A3C';
-              const cleanTags = (raw: any): string[] => Array.isArray(raw) ? raw.filter(t => typeof t === 'string' && t.trim() !== '') : [];
-              const tags = cleanTags((product as any).tags);
-              const isBestseller = tags.includes('Bestseller') || product.badge === 'Bestseller';
-              if (!isBestseller) return null;
-              return (
-                <div style={{
-                  position: 'absolute', top: 14, left: 14, zIndex: 3,
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(3px)',
-                  borderRadius: 6, padding: '5px 11px 5px 8px',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
-                }}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill={GOLD}><path d="M12 2l2.9 6.5L22 9.3l-5 4.9 1.2 7.1L12 17.9l-6.2 3.4L7 14.2 2 9.3l7.1-.8L12 2z"/></svg>
-                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: GOLD }}>Bestseller</span>
-                </div>
-              );
+              const cleanTagList = (raw: any): string[] => Array.isArray(raw) ? raw.filter(t => typeof t === 'string' && t.trim() !== '') : [];
+              const tags = cleanTagList((product as any).tags);
+              const allTags = tags.length > 0 ? tags : (product.badge ? [product.badge] : []);
+              const TAG_PRIORITY = ['Bestseller', 'Trending', 'Staff pick', 'Top rated', 'New'];
+              const TAG_STYLES: Record<string, { color: string; icon: React.ReactNode }> = {
+'Bestseller': { color: '#9C7A3C', icon: <svg width="10" height="10" viewBox="0 0 24 24" fill="#9C7A3C"><path d="M12 2l2.9 6.5L22 9.3l-5 4.9 1.2 7.1L12 17.9l-6.2 3.4L7 14.2 2 9.3l7.1-.8L12 2z"/></svg> },
+                'Trending': { color: '#9C7A3C', icon: <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9C7A3C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> },
+                'Staff pick': { color: '#9C7A3C', icon: <svg width="10" height="10" viewBox="0 0 24 24" fill="#9C7A3C"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z"/></svg> },
+                'Top rated': { color: '#9C7A3C', icon: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9C7A3C" strokeWidth="2"><circle cx="12" cy="8" r="5"/><path d="M8.5 13 7 22l5-3 5 3-1.5-9"/></svg> },
+                'New': { color: '#9C7A3C', icon: <svg width="10" height="10" viewBox="0 0 24 24" fill="#9C7A3C"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8z"/></svg> },
+              };
+const TAG_DESCRIPTIONS: Record<string, string> = {
+                'Bestseller': 'High sales volume over the past 3 months',
+                'Trending': 'Rising in popularity right now',
+                'Staff pick': 'Hand-selected by our team',
+                'Top rated': 'Loved by customers in reviews',
+                'New': 'Recently added to the shop',
+              };
+const featuredTag = TAG_PRIORITY.find(t => allTags.includes(t));
+              if (!featuredTag) return null;
+              return <ProductBadge tag={featuredTag} style={TAG_STYLES[featuredTag]} description={TAG_DESCRIPTIONS[featuredTag]} />;
             })()}
           </div>
 
@@ -250,28 +334,8 @@ function cleanTitle(raw: string): string {
         </div>
 
         {/* Info */}
-        <div>
-          <div style={{ fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--accent-soft)', marginBottom: 10, fontWeight: 500 }}>{product.category}</div>
+<div>
 <h1 style={{ fontSize: 'clamp(22px, 3.5vw, 32px)', fontWeight: 700, letterSpacing: '-0.8px', lineHeight: 1.2, marginBottom: 16 }}>{displayTitle}</h1>
-
-{(() => {
-            const GOLD = '#9C7A3C';
-            const cleanTags = (raw: any): string[] => Array.isArray(raw) ? raw.filter(t => typeof t === 'string' && t.trim() !== '') : [];
-            const tags = cleanTags((product as any).tags);
-            const otherTags = tags.length > 0
-              ? tags.filter(t => t !== 'Bestseller')
-              : (product.badge && product.badge !== 'Bestseller' ? [product.badge] : []);
-
-            if (otherTags.length === 0) return null;
-
-            return (
-              <div style={{ marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                {otherTags.map(t => (
-                  <span key={t} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: GOLD }}>{t}</span>
-                ))}
-              </div>
-            );
-          })()}
 
           {/* Type selector */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
@@ -372,7 +436,7 @@ function cleanTitle(raw: string): string {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
-                {['Premium 200gsm matte paper', 'Printed by Printful', 'Shipped in protective packaging', 'Arrives in 3–5 business days'].map(item => (
+                {['Premium matte paper', 'Printed and shipped by our trusted print partners', 'Shipped in protective packaging', 'Arrives in 3–5 business days'].map(item => (
                   <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
                     <span style={{ color: 'var(--accent-soft)' }}>✓</span>{item}
                   </div>
@@ -381,13 +445,31 @@ function cleanTitle(raw: string): string {
             </div>
           )}
 
+{/* Bundle nudge */}
+          {type === 'digital' && digitalInCart > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14,
+              background: (digitalInCart % 3 === 2) ? '#F0F7EC' : '#FAF5EC',
+              border: `1px solid ${(digitalInCart % 3 === 2) ? '#8FBF6F' : 'var(--accent)'}30`,
+              borderRadius: 10, padding: '10px 14px', fontSize: 13
+            }}>
+              <span>{(digitalInCart % 3 === 2) ? '🎉' : '🎁'}</span>
+<span>
+                {digitalInCart % 3 === 2
+                  ? <>Add this one and get it <strong>free</strong> — you're at 3!</>
+                  : <>You have <strong>{digitalInCart}</strong> digital print{digitalInCart !== 1 ? 's' : ''} in your cart — buy 3, get one <strong>free</strong>.</>}
+              </span>
+            </div>
+          )}
+
           {/* CTA */}
           <button onClick={addToCart} style={{
-            width: '100%', background: adding ? '#6B5F52' : 'var(--accent)', color: 'white',
+            width: '100%', background: adding ? '#3B6D11' : 'var(--accent)', color: 'white',
             border: 'none', borderRadius: 10, padding: '15px 0', fontSize: 15, fontWeight: 600,
-            cursor: adding ? 'default' : 'pointer', transition: 'background 0.2s', marginBottom: 12
+            cursor: adding ? 'default' : 'pointer', transition: 'background 0.2s', marginBottom: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
           }}>
-            {adding ? '✓ Added to cart' : `Add to cart — $${price.toFixed(2)}`}
+            {adding ? <>✓ Added to cart</> : `Add to cart — $${price.toFixed(2)}`}
           </button>
 
           <Link href="/cart" style={{ display: 'block', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>View cart →</Link>
