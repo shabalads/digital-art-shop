@@ -36,6 +36,7 @@ export default function Footer() {
             <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: 14 }}>Info</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <Link href="/faq" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>FAQ</Link>
+              <Link href="/reviews" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Reviews</Link>
               <Link href="/refunds" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Refund policy</Link>
               <Link href="/contact" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Contact</Link>
               <Link href="/privacy" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Privacy policy</Link>

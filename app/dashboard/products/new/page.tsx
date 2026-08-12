@@ -2,18 +2,32 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { categories } from '../../../data/products';
+
+// "Category" here means the same thing the dashboard's own "Categories" nav
+// item means (/dashboard/categories, which is actually powered by the
+// `sections` table/API — "Coastal & Seaside", "Wildflower & Botanical",
+// etc.). That's the taxonomy that actually drives the live shop's filter
+// pills and homepage groupings. There's a second, older `category` text
+// column + `categories` table + /api/categories that this form used to
+// pull from (hardcoded even further, to a stale 5-item mock list) — that
+// system isn't wired into any live customer-facing filtering anymore (its
+// only visible trace is the small capitalized line under each product
+// card/title), so it's kept here only for that cosmetic purpose, set
+// automatically from whichever section is chosen below.
+type Section = { id: string; name: string; slug: string };
 
 export default function NewProductPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [sectionId, setSectionId] = useState('');
   const [form, setForm] = useState({
     title: '',
-    description: '',
-    category: 'abstract',
+    category: '',
     price_digital: 3.99,
     price_physical: 29.99,
     badge: '',
@@ -26,6 +40,19 @@ export default function NewProductPage() {
 
   function set(key: string, value: any) {
     setForm(f => ({ ...f, [key]: value }));
+  }
+
+  useEffect(() => {
+    fetch('/api/sections')
+      .then(r => r.json())
+      .then(data => setSections(data.sections || []))
+      .catch(() => setSections([]));
+  }, []);
+
+  function selectSection(id: string) {
+    setSectionId(id);
+    const sec = sections.find(s => s.id === id);
+    set('category', sec ? sec.slug : '');
   }
 
   async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -41,6 +68,30 @@ export default function NewProductPage() {
     setUploading(false);
   }
 
+  // Same storage convention already used by the "Image" upload on the edit
+  // product page (app/dashboard/products/[id]/page.tsx) — uploads to the
+  // public "artwork" Supabase Storage bucket via /api/upload-image and gets
+  // back a public URL, unlike the digital file upload above (which stores a
+  // private storage path, not a public URL, since that file is gated behind
+  // purchase).
+  async function uploadImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/upload-image', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.publicUrl) set('image_url', data.publicUrl);
+      else alert('Upload failed: ' + (data.error || 'Unknown error'));
+    } catch {
+      alert('Upload failed');
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
   async function save() {
     setSaving(true);
     const res = await fetch('/api/products', {
@@ -49,8 +100,21 @@ export default function NewProductPage() {
       body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (data.product) router.push('/dashboard/products');
-    else setSaving(false);
+    if (!data.product) { setSaving(false); return; }
+
+    // The `category` text column set above is cosmetic only (see note at
+    // top of file) — this is what actually puts the product on the shop's
+    // real filter pills / homepage groupings, same endpoint the dashboard's
+    // per-category "Add products" screen uses.
+    if (sectionId) {
+      await fetch(`/api/sections/${sectionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds: [data.product.id], action: 'add' }),
+      });
+    }
+
+    router.push('/dashboard/products');
   }
 
   return (
@@ -63,17 +127,18 @@ export default function NewProductPage() {
             style={inputStyle} placeholder="e.g. Warm Oval Study" />
         </Field>
 
-        <Field label="Description">
-          <textarea value={form.description} onChange={e => set('description', e.target.value)}
-            rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-        </Field>
-
-        <Field label="Category">
-          <select value={form.category} onChange={e => set('category', e.target.value)} style={inputStyle}>
-            {categories.filter(c => c !== 'All').map(c => (
-              <option key={c} value={c.toLowerCase()}>{c}</option>
+        <Field label="Category (optional)">
+          <select value={sectionId} onChange={e => selectSection(e.target.value)} style={inputStyle}>
+            <option value="">— None yet —</option>
+            {sections.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
+          {sections.length === 0 && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+              No categories exist yet — create one first at <a href="/dashboard/categories" style={{ color: 'var(--accent-soft)' }}>/dashboard/categories</a>.
+            </div>
+          )}
         </Field>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -101,8 +166,24 @@ export default function NewProductPage() {
         </Field>
 
         <Field label="Image URL">
-          <input value={form.image_url} onChange={e => set('image_url', e.target.value)}
-            style={inputStyle} placeholder="https://..." />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {form.image_url && (
+              <img src={form.image_url} alt="preview" style={{ width: 100, height: 130, objectFit: 'cover', borderRadius: 8, border: '0.5px solid var(--border)' }} />
+            )}
+            <label style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '8px 14px', border: '0.5px solid var(--border)', borderRadius: 8,
+              cursor: uploadingImage ? 'not-allowed' : 'pointer', fontSize: 13,
+              color: 'var(--text-secondary)', width: 'fit-content',
+              opacity: uploadingImage ? 0.6 : 1,
+            }}>
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadImage}
+                disabled={uploadingImage} style={{ display: 'none' }} />
+              {uploadingImage ? 'Uploading…' : '↑ Upload image'}
+            </label>
+            <input value={form.image_url} onChange={e => set('image_url', e.target.value)}
+              style={inputStyle} placeholder="https://... (or upload above)" />
+          </div>
         </Field>
 
         <Field label="Digital file">

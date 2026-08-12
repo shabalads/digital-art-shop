@@ -190,7 +190,7 @@ function selectSection(id: string) {
               : 'All Prints'}
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            {loading ? 'Loading…' : `${sorted.length} design${sorted.length !== 1 ? 's' : ''}`}
+            {loading ? 'Loading…' : `${sorted.length} print${sorted.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         <select value={sort} onChange={e => setSort(e.target.value)} style={{
@@ -247,7 +247,7 @@ function selectSection(id: string) {
       )}
       {!loading && totalPages > 1 && (
         <div style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
-          Page {page} of {totalPages} · {sorted.length} designs
+          Page {page} of {totalPages} · {sorted.length} prints
         </div>
       )}
     </div>

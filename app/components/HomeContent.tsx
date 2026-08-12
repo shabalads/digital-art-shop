@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { mockProducts as allProducts, bestsellerProducts, Product } from '../data/products';
 import ProductCard from './ProductCard';
 import SkeletonCard from './SkeletonCard';
+import CustomerReviewsGallery from './CustomerReviewsGallery';
 import Link from 'next/link';
 
 const moods = [
@@ -248,7 +249,7 @@ useEffect(() => {
         </div>
 </div>
 
-      {/* ── LOOKS ON YOUR WALL ── */}
+{/* ── LOOKS ON YOUR WALL ── */}
 <div style={{ padding: '0 clamp(20px, 4vw, 40px) 80px', maxWidth: 1280, margin: '0 auto' }}>
         <div style={{ marginBottom: 36, textAlign: 'center' }}>
           <div style={{ fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8, fontWeight: 500 }}>In your home</div>
@@ -300,6 +301,15 @@ useEffect(() => {
               </div>
             </div>
           ))}
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: 28 }}>
+          <Link href="/reviews" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 14, color: 'var(--accent-soft)', fontWeight: 500
+          }}>
+            See all customer photos →
+          </Link>
         </div>
 </div>
 
@@ -463,90 +473,10 @@ useEffect(() => {
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>★★★★★ 4.8 · 527 reviews on Etsy</div>
           </div>
 
-          <ReviewsSection />
+          <CustomerReviewsGallery limit={8} showViewAllLink />
         </div>
       </div>
 
-    </div>
-  );
-}
-
-const allReviews = [
-  { name: 'Sarah M.', country: '🇺🇸 United States', text: 'Absolutely love the print! The quality is amazing and the download was instant. Already ordered a second one for my bedroom.', product: 'Botanical Print' },
-  { name: 'Emma L.', country: '🇬🇧 United Kingdom', text: 'Perfect for my new apartment. The colours are exactly as shown and it looks stunning in a white frame. Very fast delivery too!', product: 'Abstract Study' },
-  { name: 'Julia K.', country: '🇩🇪 Germany', text: 'Third time ordering from this shop. The prints are always high quality and the files are easy to download. Highly recommend.', product: 'Minimal Arc' },
-  { name: 'Anna P.', country: '🇨🇿 Czech Republic', text: 'Krásný tisk, skvělá kvalita. Rám z IKEA a vypadá naprosto perfektně. Rychlé stažení, vše bez problémů.', product: 'Typography Print' },
-  { name: "Marie D.", country: '🇫🇷 France', text: "Superbe qualité, téléchargement immédiat. J'ai imprimé en A3 chez mon imprimeur local et le rendu est magnifique.", product: 'Botanical Study' },
-  { name: 'Olivia T.', country: '🇦🇺 Australia', text: 'Such a great find. Bought 3 prints for my living room gallery wall and they look incredible together. Will definitely be back!', product: 'Abstract Collection' },
-  { name: 'Jessica R.', country: '🇺🇸 United States', text: 'I printed this at Walgreens and it came out so beautiful. The file size was perfect and the colours were vibrant. Love it!', product: 'Floral Print' },
-  { name: 'Sophie B.', country: '🇨🇦 Canada', text: 'Ordered 4 prints for my new home and they all look amazing. Super easy to download and the quality is outstanding.', product: 'Coastal Collection' },
-  { name: 'Laura M.', country: '🇺🇸 United States', text: 'This is my third purchase from this shop. Every single time the quality is perfect and the files are exactly as described.', product: 'Abstract Print' },
-  { name: 'Hannah K.', country: '🇩🇪 Germany', text: 'Wunderschöner Druck, sehr gute Qualität. Habe ihn in A3 ausgedruckt und er sieht fantastisch aus. Sehr empfehlenswert!', product: 'Botanical Print' },
-  { name: 'Charlotte W.', country: '🇬🇧 United Kingdom', text: 'Gorgeous print, exactly what I was looking for. Downloaded instantly and printed perfectly. My hallway looks amazing now!', product: 'Minimal Print' },
-  { name: 'Isabella F.', country: '🇮🇹 Italy', text: 'Bellissima stampa! La qualità è eccellente e il download è stato immediato. Lo consiglio vivamente a tutti!', product: 'Abstract Study' },
-  { name: 'Mia S.', country: '🇸🇪 Sweden', text: 'Fantastic quality and such a beautiful design. Printed on A4 and framed it — looks like it cost ten times more than it did!', product: 'Botanical Print' },
-  { name: 'Chloe P.', country: '🇫🇷 France', text: 'Très belle impression, couleurs fidèles à ce qui est montré. Livraison instantanée, je recommande vivement!', product: 'Typography Print' },
-  { name: 'Grace L.', country: '🇦🇺 Australia', text: 'Ordered this as a gift and the recipient absolutely loved it. The print quality is incredible — will definitely order again!', product: 'Floral Study' },
-  { name: 'Ava N.', country: '🇺🇸 United States', text: 'I was skeptical about digital prints but this completely changed my mind. The resolution is incredible and it printed beautifully.', product: 'Abstract Collection' },
-  { name: 'Ella B.', country: '🇳🇿 New Zealand', text: 'Beautiful artwork, downloaded and printed within minutes. Looks stunning above my fireplace. Very happy customer!', product: 'Coastal Print' },
-  { name: 'Zoe H.', country: '🇺🇸 United States', text: 'This shop is my go-to for wall art now. Affordable, beautiful, instant. What more could you want? 10/10!', product: 'Gallery Collection' },
-  { name: 'Natalie C.', country: '🇨🇦 Canada', text: 'Perfect addition to my nursery! The soft colours are exactly what I wanted and the print quality is amazing.', product: 'Botanical Print' },
-  { name: 'Victoria R.', country: '🇺🇸 United States', text: 'Stunning print, beautiful colours. I bought a frame from IKEA and it fits perfectly. Looks like a professional piece!', product: 'Abstract Study' },
-];
-
-function ReviewsSection() {
-  const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? allReviews : allReviews.slice(0, 8);
-
-  return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, marginBottom: 32 }}>
-        {visible.map((review, i) => (
-          <div key={i} style={{ background: 'var(--bg)', border: '0.5px solid var(--border)', borderRadius: 12, padding: '20px 22px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{review.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{review.country}</div>
-              </div>
-              <div style={{ fontSize: 12, color: '#8B7355', letterSpacing: '2px' }}>★★★★★</div>
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.75, marginBottom: 12 }}>"{review.text}"</p>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', borderTop: '0.5px solid var(--border)', paddingTop: 10 }}>
-              Purchased: {review.product}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {!expanded && (
-        <div style={{ textAlign: 'center' }}>
-          <button
-            onClick={() => setExpanded(true)}
-            style={{
-              background: 'none', border: '0.5px solid var(--border)',
-              borderRadius: 24, padding: '10px 28px', fontSize: 13,
-              color: 'var(--text-secondary)', cursor: 'pointer'
-            }}
-          >
-            Show all 20 reviews ↓
-          </button>
-        </div>
-      )}
-
-      {expanded && (
-        <div style={{ textAlign: 'center' }}>
-          <button
-            onClick={() => setExpanded(false)}
-            style={{
-              background: 'none', border: '0.5px solid var(--border)',
-              borderRadius: 24, padding: '10px 28px', fontSize: 13,
-              color: 'var(--text-secondary)', cursor: 'pointer'
-            }}
-          >
-            Show less ↑
-          </button>
-        </div>
-      )}
     </div>
   );
 }

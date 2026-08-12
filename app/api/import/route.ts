@@ -34,7 +34,13 @@ function mapEtsyRow(row: Record<string, string>) {
     badge: '',
     bg_color: randomBg(),
     image_url: imageUrl,
-    digital_file_url: imageUrl,
+    // Never default this to the product image — that's the bug that left a
+    // batch of products "delivering" their own preview photo instead of a
+    // real file. Leaving it blank means the webhook's existing safety net
+    // (MISSING DIGITAL FILE log, no download link sent) kicks in honestly
+    // until a real file is matched in, instead of silently sending the
+    // wrong thing.
+    digital_file_url: '',
     active,
   };
 }
@@ -80,7 +86,7 @@ export async function POST(req: NextRequest) {
       const { error } = await supabaseAdmin.from('products').insert({
         ...product,
         image_url: imageUrl,
-        digital_file_url: imageUrl || product.digital_file_url,
+        digital_file_url: product.digital_file_url,
       });
 
       if (error) {

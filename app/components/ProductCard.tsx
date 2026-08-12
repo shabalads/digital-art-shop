@@ -6,19 +6,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { Product } from '../data/products';
-
-function cleanProductTitle(raw: string): string {
-  if (!raw) return '';
-  const separators = [' | ', ' – ', ' - ', ', '];
-  let cleaned = raw;
-  for (const sep of separators) {
-    const idx = cleaned.indexOf(sep);
-    if (idx > 20) { cleaned = cleaned.substring(0, idx).trim(); break; }
-  }
-  cleaned = cleaned.replace(/\s*(Print|Poster|Wall Art|Printable|Digital|Download|Art Print)$/i, '').trim();
-  if (cleaned.length > 50) cleaned = cleaned.substring(0, 50).split(' ').slice(0, -1).join(' ');
-  return cleaned;
-}
+import { cleanProductTitle } from '../lib/text';
 
 const HEART_COLORS = [
   'rgba(220,50,50,0.9)',

@@ -10,6 +10,7 @@ import ImageZoom from '../../../components/ImageZoom';
 import { useIsMobile } from '../../../components/useIsMobile';
 import Link from 'next/link';
 import HeartButton from '../../../components/HeartButton';
+import ProductReviews from '../../../components/ProductReviews';
 
 const DIGITAL_SIZES = [
   { ratio: '2:3', label: 'Portrait', sizes: ['4×6"', '8×12"', '12×18"', '16×24"', '20×30"', '24×36"'] },
@@ -476,6 +477,8 @@ const featuredTag = TAG_PRIORITY.find(t => allTags.includes(t));
           <Link href="/shop" style={{ fontSize: 13, color: 'var(--accent-soft)' }}>← Back to shop</Link>
         </div>
       </div>
+
+      <ProductReviews productId={product.id} />
 
       {/* Related */}
       {related.length > 0 && (

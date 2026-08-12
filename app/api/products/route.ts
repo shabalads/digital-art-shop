@@ -76,7 +76,40 @@ let query = supabaseAdmin
   if (tag) query = query.or(`tags.cs.{${tag}},badge.eq.${tag}`);
   if (section) query = query.contains('section_ids', [section]); // ← new
   if (room) query = query.eq('room', room); // ← new
-  if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+  // Multi-word queries used to be matched as ONE contiguous phrase
+  // (title.ilike.%sardine painting%), which only matches if those exact
+  // words appear adjacent, in that order, in the title/description. A real
+  // product titled "Sardines Retro Fish Art Print" would never match a
+  // "sardine painting" search under that logic, even though it's obviously
+  // the right product — confirmed via real data 2026-07-27 (11 real
+  // "sardine" products exist, none contains "sardine painting" as a single
+  // substring). Fixed: split on whitespace, require EVERY word to appear
+  // SOMEWHERE in title or description, in any order/position — each .or()
+  // call below adds its own (title ilike OR description ilike) group, and
+  // multiple .or() calls are ANDed together by Postgrest, so this reads as
+  // "word1 matches AND word2 matches AND ...".
+  //
+  // STOPWORDS: a bare filler word like "of" or a single digit like "3" —
+  // e.g. from a "set of 3" search — still gets its own AND'd ILIKE clause
+  // if included, and %of% / %3% match almost everything: "of" is a
+  // substring of "coffee", "office", "waterproof", etc., and a lone "3"
+  // matches any size/DPI figure buried in a description (A3, 12x18, 300
+  // DPI...). Confirmed live: "set of 3" was returning 475 of 554 products —
+  // essentially the whole catalog, because "of" and "3" alone barely
+  // filtered anything once ANDed with "set". Dropping common filler words
+  // and words under 3 characters before building the AND clause fixes
+  // this; if that empties the query entirely (e.g. the whole search was
+  // just "of" or "3"), fall back to the original words rather than
+  // searching for nothing.
+  if (q) {
+    const STOPWORDS = new Set(['a', 'an', 'the', 'of', 'for', 'and', 'or', 'in', 'on', 'with', 'to']);
+    const allWords = q.trim().split(/\s+/).filter(Boolean);
+    const words = allWords.filter((w) => w.length > 2 && !STOPWORDS.has(w.toLowerCase()));
+    for (const word of words.length > 0 ? words : allWords) {
+      const escaped = word.replace(/[%_]/g, '\\$&');
+      query = query.or(`title.ilike.%${escaped}%,description.ilike.%${escaped}%`);
+    }
+  }
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
