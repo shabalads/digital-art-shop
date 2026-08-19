@@ -1,7 +1,11 @@
 // app/components/ReviewCard.tsx
 
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import { cleanProductTitle } from '../lib/text';
+import ReviewLightbox from './ReviewLightbox';
 
 export type CustomerReviewRow = {
   id: number;
@@ -14,26 +18,39 @@ export type CustomerReviewRow = {
   rating: number | null;
   review_date: string | null;
   product_id?: string | null;
+  // Current live products.title for review.product_id, joined server-side
+  // in /api/reviews — see the comment there for why this can't be a
+  // PostgREST embed. null when product_id is unset OR the linked product
+  // no longer exists.
+  product_title?: string | null;
 };
 
 function displayFirstName(reviewerName: string): string {
   const cleaned = reviewerName.replace(/[()]/g, '').trim();
-  if (!cleaned || cleaned.toLowerCase() === 'anonymous') return 'Anonymous';
+  if (!cleaned || cleaned.toLowerCase() === 'anonymous') return 'Verified Buyer';
   return cleaned.split(/\s+/)[0];
 }
 
 export default function ReviewCard({ review }: { review: CustomerReviewRow }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const firstName = displayFirstName(review.reviewer_name);
+  const hasImage = Boolean(review.image_path);
+  // Once a review is confidently linked to one specific product
+  // (product_id set), always show THAT product's current live title —
+  // never the raw historical product_name, which for multi-item orders can
+  // be several items' titles concatenated with " / " (that's the exact bug
+  // this fixes: cards showing "Sardine Painting / Vibrant Mountains
+  // Landscape Wall Art / Colorful"). Only fall back to product_name when
+  // there's no product_id (unmatched review) or the linked product has
+  // since been deleted (product_title came back null).
+  const rawProductName = review.product_id && review.product_title ? review.product_title : review.product_name;
+  // cleanProductTitle is the same shortener ProductCard/HomeContent use for
+  // the live product grid, so a review's title reads the same short, clean
+  // way everywhere.
+  const displayProductName = rawProductName ? cleanProductTitle(rawProductName) : null;
   // Only emit Review structured data when we have a real rating + quote +
   // product name to attach it to — never fabricate any of those.
-  const hasQuote = Boolean(review.quote && review.rating && review.product_name);
-  const hasImage = Boolean(review.image_path);
-  // Reviews imported from the text-only Etsy export store the full raw
-  // listing title as product_name (multi-clause, sometimes several items'
-  // titles concatenated for "N items, one order" cases) — cleanProductTitle
-  // is the same shortener ProductCard already uses for the live product
-  // grid, so a review's title reads the same short, clean way everywhere.
-  const displayProductName = review.product_name ? cleanProductTitle(review.product_name) : null;
+  const hasQuote = Boolean(review.quote && review.rating && rawProductName);
 
   return (
     <div style={{
@@ -50,7 +67,7 @@ export default function ReviewCard({ review }: { review: CustomerReviewRow }) {
               reviewRating: { '@type': 'Rating', ratingValue: String(review.rating) },
               author: { '@type': 'Person', name: firstName },
               reviewBody: review.quote,
-              itemReviewed: { '@type': 'Product', name: review.product_name },
+              itemReviewed: { '@type': 'Product', name: displayProductName ?? rawProductName },
             }),
           }}
         />
@@ -59,10 +76,13 @@ export default function ReviewCard({ review }: { review: CustomerReviewRow }) {
       {/* Text-only reviews (no photo submitted) skip this block entirely —
           same card style otherwise, just no image area. */}
       {hasImage && (
-        <div style={{ aspectRatio: '4/5', background: 'var(--bg-pill)', overflow: 'hidden' }}>
+        <div
+          onClick={() => setLightboxOpen(true)}
+          style={{ aspectRatio: '4/5', background: 'var(--bg-pill)', overflow: 'hidden', cursor: 'pointer' }}
+        >
           <img
             src={review.image_path!}
-            alt={review.product_name ? `${review.product_name} — photo from ${firstName}` : `Photo from ${firstName}`}
+            alt={displayProductName ? `${displayProductName} — photo from ${firstName}` : `Photo from ${firstName}`}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             loading="lazy"
           />
@@ -114,6 +134,15 @@ export default function ReviewCard({ review }: { review: CustomerReviewRow }) {
           </div>
         )}
       </div>
+
+      {lightboxOpen && hasImage && (
+        <ReviewLightbox
+          review={review}
+          firstName={firstName}
+          displayProductName={displayProductName}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </div>
   );
 }

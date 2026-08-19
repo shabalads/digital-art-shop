@@ -336,7 +336,13 @@ const featuredTag = TAG_PRIORITY.find(t => allTags.includes(t));
 
         {/* Info */}
 <div>
-<h1 style={{ fontSize: 'clamp(22px, 3.5vw, 32px)', fontWeight: 700, letterSpacing: '-0.8px', lineHeight: 1.2, marginBottom: 16 }}>{displayTitle}</h1>
+<h1 style={{ fontSize: 'clamp(22px, 3.5vw, 32px)', fontWeight: 700, letterSpacing: '-0.8px', lineHeight: 1.2, marginBottom: 10 }}>{displayTitle}</h1>
+<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+  <span style={{ color: '#C4963A', fontSize: 14, letterSpacing: '2px' }}>★★★★★</span>
+  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>4.8 · 1,200+ verified reviews</span>
+  <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 4 }}>·</span>
+  <span style={{ fontSize: 13, color: 'var(--accent-soft)' }}>7,200+ happy customers</span>
+</div>
 
           {/* Type selector */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
@@ -389,12 +395,21 @@ const featuredTag = TAG_PRIORITY.find(t => allTags.includes(t));
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+<div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
                 {['300 DPI — print-ready resolution', 'Instant download after payment', 'Print at home or at any local print shop', 'Personal use license included'].map(item => (
                   <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
                     <span style={{ color: 'var(--accent-soft)' }}>✓</span>{item}
                   </div>
                 ))}
+              </div>
+
+              <div style={{
+                marginBottom: 4, padding: '10px 14px',
+                background: 'white', border: '0.5px solid var(--border)',
+                borderRadius: 8, fontSize: 12, color: 'var(--text-muted)',
+                lineHeight: 1.5
+              }}>
+                💡 <strong>Tip:</strong> Looks stunning in a thin gold or natural wood frame. Print at IKEA, Walgreens, or your local print shop.
               </div>
             </div>
           )}
@@ -463,6 +478,32 @@ const featuredTag = TAG_PRIORITY.find(t => allTags.includes(t));
             </div>
           )}
 
+          {/* Guarantee strip */}
+<div style={{
+  display: 'flex', gap: 16, marginBottom: 16,
+  padding: '12px 16px', background: '#FAF5EC',
+  borderRadius: 10, border: '0.5px solid #E8D9C0'
+}}>
+  {(type === 'digital'
+    ? [
+        { icon: '⚡', text: 'Instant delivery' },
+        { icon: '🖨️', text: 'Print-ready files' },
+        { icon: '💛', text: 'Loved by 7,200+ customers' },
+      ]
+    : [
+        // Physical orders aren't instant and there's no "file" — those two
+        // claims don't apply once "Printed & shipped" is selected, so only
+        // the trust badge carries over.
+        { icon: '💛', text: 'Loved by 7,200+ customers' },
+      ]
+  ).map(item => (
+    <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)', flex: 1 }}>
+      <span>{item.icon}</span>
+      <span>{item.text}</span>
+    </div>
+  ))}
+</div>
+
           {/* CTA */}
           <button onClick={addToCart} style={{
             width: '100%', background: adding ? '#3B6D11' : 'var(--accent)', color: 'white',
@@ -472,9 +513,13 @@ const featuredTag = TAG_PRIORITY.find(t => allTags.includes(t));
           }}>
             {adding ? <>✓ Added to cart</> : `Add to cart — $${price.toFixed(2)}`}
           </button>
+          
 
           <Link href="/cart" style={{ display: 'block', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>View cart →</Link>
-          <Link href="/shop" style={{ fontSize: 13, color: 'var(--accent-soft)' }}>← Back to shop</Link>
+          <div style={{ borderTop: '0.5px solid var(--border)', paddingTop: 16, marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+  <Link href="/shop" style={{ fontSize: 13, color: 'var(--accent-soft)' }}>← Back to shop</Link>
+  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>🔒 Secure checkout</span>
+</div>
         </div>
       </div>
 

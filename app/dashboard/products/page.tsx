@@ -31,6 +31,8 @@ export default function DashboardProductsPage() {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [tagMode, setTagMode] = useState<string | null>(null);
   const [batchTag, setBatchTag] = useState<string>(ALL_TAGS[0]);
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+const [editingTitleValue, setEditingTitleValue] = useState('');
 
   useEffect(() => { fetchProducts(); }, []);
 
@@ -131,6 +133,17 @@ export default function DashboardProductsPage() {
     fetchProducts();
     setBatchLoading(false);
   }
+
+  async function saveTitleInline(id: string) {
+  if (!editingTitleValue.trim()) return;
+  await fetch('/api/products', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, title: editingTitleValue.trim() }),
+  });
+  setEditingTitleId(null);
+  fetchProducts();
+}
 
   function cleanTitle(raw: string): string {
     const separators = [' | ', ' – ', ' - ', ', '];

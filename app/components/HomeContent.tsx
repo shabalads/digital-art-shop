@@ -144,7 +144,7 @@ useEffect(() => {
           Prints for every<br />wall, every mood.
         </h1>
         <p style={{ fontSize: 17, color: 'var(--text-secondary)', marginBottom: 40, lineHeight: 1.6, maxWidth: 480, margin: '0 auto 40px' }}>
-          600+ designs — download instantly or get it printed and shipped to your door.
+         600+ prints — download instantly or get it printed and shipped to your door.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => shopRef.current?.scrollIntoView({ behavior: 'smooth' })} style={{
@@ -221,7 +221,7 @@ useEffect(() => {
                 { bg: '#E8E4EC', color: '#4B3B6B' },
               ];
               return moodSections.map((section, i) => {
-                const meta = MOOD_META[section.name] || { label: section.name, desc: `${section.product_count} designs`, ...FALLBACK_PALETTE[i % FALLBACK_PALETTE.length] };
+                const meta = MOOD_META[section.name] || { label: section.name, desc: `${section.product_count} prints`, ...FALLBACK_PALETTE[i % FALLBACK_PALETTE.length] };
                 return (
                   <Link key={section.id} href={`/shop?section=${section.id}`} style={{ textDecoration: 'none' }}>
                     <div style={{
@@ -352,7 +352,7 @@ useEffect(() => {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                {loading ? '…' : `Showing ${Math.min(HOME_PAGE_SIZE, sorted.length)} of ${sorted.length} designs`}
+                {loading ? '…' : `Showing ${Math.min(HOME_PAGE_SIZE, sorted.length)} of ${sorted.length} prints`}
               </span>
               <select value={sort} onChange={e => setSort(e.target.value)} style={{
                 background: 'var(--bg)', border: '0.5px solid var(--border)',
@@ -423,7 +423,7 @@ useEffect(() => {
             <div style={{ fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--accent-soft)', marginBottom: 14, fontWeight: 500 }}>Ready to hang</div>
             <h2 style={{ fontSize: 'clamp(22px, 4vw, 34px)', fontWeight: 700, letterSpacing: '-1px', marginBottom: 12, lineHeight: 1.15 }}>Download. Print. Hang.</h2>
             <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.7, maxWidth: 400 }}>
-              Every design is print-ready at full resolution. Works with any home printer or local print shop.
+              Every print is ready at full resolution. Works with any home printer or local print shop.
             </p>
           </div>
           <Link href="/shop" style={{
@@ -448,7 +448,7 @@ useEffect(() => {
             { value: '4.8 ★', label: 'Average rating' },
             { value: '527', label: 'Verified reviews' },
             { value: '2.5 yrs', label: 'On Etsy' },
-            { value: '600+', label: 'Designs' },
+            { value: '600+', label: 'Prints' },
           ].map((stat, i) => (
             <div key={stat.label} style={{
               borderLeft: i > 0 ? '0.5px solid var(--border)' : 'none',

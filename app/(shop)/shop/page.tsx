@@ -89,7 +89,6 @@ const qParam = searchParams.get('q') || '';
   const sorted = [...filtered].sort((a, b) => {
     if (sort === 'price-asc') return a.price_digital - b.price_digital;
     if (sort === 'price-desc') return b.price_digital - a.price_digital;
-    if (sort === 'name') return a.title.localeCompare(b.title);
 if (sort === 'name') return a.title.localeCompare(b.title);
     return ((a as any).home_sort_order ?? 999999) - ((b as any).home_sort_order ?? 999999);
   });
@@ -131,7 +130,7 @@ function selectSection(id: string) {
             }
             if (e.key === 'Escape') { setSearchInput(''); router.push('/shop'); }
           }}
-          placeholder="Search 500+ prints…"
+          placeholder="Search 600+ prints…"
           style={{
             width: '100%', padding: '14px 44px 14px 46px', fontSize: 15,
             border: '1px solid #D4C4B0', borderRadius: 28,

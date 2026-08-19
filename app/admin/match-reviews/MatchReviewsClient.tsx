@@ -4,15 +4,28 @@
 // walks through them client-side. Clicking a candidate saves product_id to
 // Supabase immediately (no save button, no reload) and advances.
 //
-// TABS: photo reviews (the original 100, image_path NOT NULL) and text-only
-// reviews (the ~1,191-row import, image_path NULL) are two separate queues
-// — the owner works through one batch at a time instead of them being
+// TABS: photo reviews (the original 100, image_path NOT NULL), text-only
+// reviews (the ~1,191-row import, image_path NULL), and Christmas & Holiday
+// reviews (pulled out of BOTH of the above by keyword match — see
+// CHRISTMAS_KEYWORDS in the queue API route) are three separate queues —
+// the owner works through one batch at a time instead of them being
 // interleaved. Each tab has its own independent queue/history/selections,
 // fetched lazily (only when first visited) and cached in `tabs` for the
 // rest of the session, so switching tabs and back preserves progress in
 // both. All the navigation logic below is unchanged from the single-queue
 // version — it's just been parameterized to operate on whichever tab is
 // active instead of one global state slice.
+//
+// PERSISTENCE ACROSS RELOADS: matched reviews never come back (product_id
+// is set in Supabase, the queue API excludes them permanently) but skipped
+// reviews used to be purely in-memory — a page reload lost all of that and
+// they'd resurface from the top. Skipped review IDs are now also written to
+// localStorage per tab (see loadSkippedIds/saveSkippedIds below) and
+// filtered out of the queue on every load, so "where you left off" survives
+// a reload without needing to store an explicit position — the position
+// *is* "every unmatched review not in the skipped set, in id order". The
+// "Reset queue" button at the bottom of the page clears that localStorage
+// state for the active tab so skipped reviews come back on purpose.
 //
 // Navigation model (per tab):
 // - `queue` is the pool of not-yet-resolved reviews fetched once per tab.
@@ -59,7 +72,7 @@ type QueueItem = {
   candidates: Candidate[];
 };
 
-type TabKey = 'photo' | 'text';
+type TabKey = 'photo' | 'text' | 'christmas';
 
 type TabState = {
   queue: QueueItem[] | null;
@@ -82,12 +95,56 @@ const EMPTY_TAB_STATE: TabState = {
 const TAB_LABELS: Record<TabKey, string> = {
   photo: 'Photo reviews',
   text: 'Text reviews',
+  christmas: 'Christmas & Holiday reviews',
 };
 
+// Skipped-review IDs persist here, one localStorage key per tab, so a page
+// reload doesn't lose progress. Only skips are tracked — matches are
+// already permanent in Supabase and never come back from the queue API.
+const SKIPPED_STORAGE_PREFIX = 'matchReviews:skipped:';
+
+function loadSkippedIds(tab: TabKey): Set<number> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = window.localStorage.getItem(SKIPPED_STORAGE_PREFIX + tab);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveSkippedIds(tab: TabKey, ids: Set<number>) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SKIPPED_STORAGE_PREFIX + tab, JSON.stringify(Array.from(ids)));
+  } catch {
+    // Private browsing / quota exceeded — degrade silently, skip tracking
+    // just won't survive a reload this time.
+  }
+}
+
+function clearSkippedIds(tab: TabKey) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(SKIPPED_STORAGE_PREFIX + tab);
+  } catch {
+    // ignore
+  }
+}
+
 export default function MatchReviewsClient() {
-  const [tabs, setTabs] = useState<Record<TabKey, TabState>>({ photo: EMPTY_TAB_STATE, text: EMPTY_TAB_STATE });
+  const [tabs, setTabs] = useState<Record<TabKey, TabState>>({
+    photo: EMPTY_TAB_STATE,
+    text: EMPTY_TAB_STATE,
+    christmas: EMPTY_TAB_STATE,
+  });
   const [activeTab, setActiveTab] = useState<TabKey>('photo');
-  const [counts, setCounts] = useState<{ photo: number; text: number }>({ photo: 0, text: 0 });
+  const [counts, setCounts] = useState<{ photo: number; text: number; christmas: number }>({
+    photo: 0,
+    text: 0,
+    christmas: 0,
+  });
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,22 +170,52 @@ export default function MatchReviewsClient() {
       const res = await fetch(`/api/admin/match-reviews/queue?type=${tab}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const q: QueueItem[] = data.queue || [];
+      const rawQueue: QueueItem[] = data.queue || [];
+      // Filter out anything skipped earlier this session (or a previous
+      // session, now that it's persisted) — this is what makes reloading
+      // resume where you left off instead of restarting from the top.
+      const skipped = loadSkippedIds(tab);
+      const q = skipped.size > 0 ? rawQueue.filter((r) => !skipped.has(r.id)) : rawQueue;
       setTabs((prev) => ({
         ...prev,
         [tab]: {
           queue: q,
-          total: data.total ?? q.length,
+          total: q.length,
           history: q.length > 0 ? [q[0]] : [],
           viewOffset: 0,
           selections: {},
           loadError: null,
         },
       }));
-      if (data.counts) setCounts(data.counts);
+      // data.counts covers all three tabs regardless of which type was
+      // requested — subtract each tab's persisted skip count so the tab
+      // badges match what's actually still actionable, not the raw
+      // server-side unresolved count.
+      if (data.counts) {
+        setCounts({
+          photo: Math.max(0, (data.counts.photo ?? 0) - loadSkippedIds('photo').size),
+          text: Math.max(0, (data.counts.text ?? 0) - loadSkippedIds('text').size),
+          christmas: Math.max(0, (data.counts.christmas ?? 0) - loadSkippedIds('christmas').size),
+        });
+      }
     } catch {
       setTabs((prev) => ({ ...prev, [tab]: { ...prev[tab], loadError: 'Failed to load the queue. Refresh to try again.' } }));
     }
+  }
+
+  // Clears this tab's persisted skip state and re-fetches from scratch —
+  // does NOT touch Supabase, so already-matched reviews are unaffected;
+  // only previously-skipped reviews in this tab reappear.
+  async function resetQueue(tab: TabKey) {
+    if (busy) return;
+    const ok = window.confirm(
+      `Reset the ${TAB_LABELS[tab]} queue? Skipped reviews will reappear from the beginning. Already-matched reviews are saved and won't be affected.`
+    );
+    if (!ok) return;
+    clearSkippedIds(tab);
+    setTabs((prev) => ({ ...prev, [tab]: EMPTY_TAB_STATE }));
+    if (tab === activeTab) clearSearch();
+    await loadTab(tab);
   }
 
   // Load the active tab's queue the first time it's visited; switching back
@@ -193,6 +280,11 @@ export default function MatchReviewsClient() {
   }
 
   function skip(reviewId: number) {
+    // Only a skip of the LIVE item is a "real" skip that should persist and
+    // hide the review going forward — paging through history (S on a past
+    // item) never writes anything, same as it never did before.
+    const wasLive = tabState.viewOffset === 0;
+
     updateActiveTab((s) => {
       if (s.viewOffset === 0) {
         const newQueue = s.queue ? s.queue.filter((r) => r.id !== reviewId) : s.queue;
@@ -206,6 +298,14 @@ export default function MatchReviewsClient() {
       // Never writes — just pages forward through history.
       return { viewOffset: Math.max(0, s.viewOffset - 1) };
     });
+
+    if (wasLive) {
+      const skipped = loadSkippedIds(activeTab);
+      skipped.add(reviewId);
+      saveSkippedIds(activeTab, skipped);
+      setCounts((c) => ({ ...c, [activeTab]: Math.max(0, c[activeTab] - 1) }));
+    }
+
     clearSearch();
   }
 
@@ -266,7 +366,7 @@ export default function MatchReviewsClient() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: 24 }}>
       <div style={{ maxWidth: 1120, margin: '0 auto' }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {(['photo', 'text'] as const).map((tab) => (
+          {(['photo', 'text', 'christmas'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -484,6 +584,26 @@ export default function MatchReviewsClient() {
             </div>
           </div>
         )}
+
+        <div style={{ marginTop: 40, textAlign: 'center' }}>
+          <button
+            onClick={() => resetQueue(activeTab)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--text-muted)',
+              fontSize: 11.5,
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              textUnderlineOffset: 2,
+            }}
+            title={`Clear locally-skipped reviews for ${TAB_LABELS[activeTab]} and start that queue over. Already-matched reviews in Supabase are never affected.`}
+          >
+            Reset {TAB_LABELS[activeTab].toLowerCase()} queue
+          </button>
+        </div>
       </div>
     </div>
   );

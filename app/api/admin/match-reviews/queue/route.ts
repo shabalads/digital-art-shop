@@ -5,13 +5,22 @@
 // customer_reviews and products, including matches saved seconds ago by
 // /api/admin/match-reviews/resolve.
 //
-// ?type=photo | text (required-ish; defaults to 'photo' if omitted) selects
-// which of the two review batches to queue — the original 100 photo
-// reviews (image_path NOT NULL) or the ~1,191-row text-only import
-// (image_path NULL). Kept as two separate queues/tabs in the admin UI so
-// the owner can work through one batch at a time instead of them being
-// interleaved; image_path IS NULL remains the only discriminator, no
-// schema change.
+// ?type=photo | text | christmas selects which of the three queues/tabs to
+// return:
+//   - photo:     image_path NOT NULL, not Christmas/holiday-themed
+//   - text:      image_path IS NULL, not Christmas/holiday-themed
+//   - christmas: ANY unresolved review (photo or text) that IS
+//                Christmas/holiday-themed — pulled out of both of the above
+//                so the owner can work through non-seasonal reviews without
+//                the holiday backlog interleaved, and deal with the
+//                Christmas batch separately later.
+// Defaults to 'photo' if omitted/unrecognized.
+//
+// A single unfiltered fetch of every unresolved row (product_id IS NULL) is
+// done once per request, then split three ways in memory — this keeps the
+// three tabs' counts guaranteed consistent with each other (no risk of a
+// race between separately-issued count queries) and avoids querying
+// Supabase 4 times like the old photo/text-only version did.
 //
 // PAGINATION: PostgREST (Supabase's query layer) caps any single response
 // at 1000 rows by default, silently — a plain `.select()` past that just
@@ -28,6 +37,32 @@ import { topCandidates } from '../../../../lib/reviewMatch';
 export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 1000;
+
+// Word-boundary matched, not plain substring — a naive .includes('elf')
+// would false-positive on "myself"/"shelf", and .includes('advent') on
+// "adventure". \b on both ends of each keyword (spaces inside multi-word
+// phrases like "candy cane" are literal) avoids that while still catching
+// the keyword as a standalone word/phrase anywhere in the text.
+const CHRISTMAS_KEYWORDS = [
+  'christmas', 'xmas', 'holiday', 'santa', 'snowman', 'nativity',
+  'winter village', 'candy cane', 'reindeer', 'nutcracker', 'advent',
+  'festive', 'sleigh', 'ornament', 'wreath', 'mistletoe', 'caroling',
+  'elf', 'north pole',
+];
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const CHRISTMAS_RE = new RegExp(
+  CHRISTMAS_KEYWORDS.map((kw) => `\\b${escapeRegex(kw)}\\b`).join('|'),
+  'i'
+);
+
+function isChristmas(row: { product_name: string | null; quote: string | null }): boolean {
+  const text = `${row.product_name || ''} ${row.quote || ''}`;
+  return CHRISTMAS_RE.test(text);
+}
 
 async function fetchAllRows<T>(
   build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
@@ -50,33 +85,36 @@ export async function GET(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
-  const type = searchParams.get('type') === 'text' ? 'text' : 'photo';
+  const typeParam = searchParams.get('type');
+  const type: 'photo' | 'text' | 'christmas' =
+    typeParam === 'text' ? 'text' : typeParam === 'christmas' ? 'christmas' : 'photo';
 
-  const reviewsQuery = (from: number, to: number) => {
-    let q = supabaseAdmin
+  const allReviewsQuery = (from: number, to: number) =>
+    supabaseAdmin
       .from('customer_reviews')
       .select('id, image_path, reviewer_name, product_name, quote, rating, review_date, order_id')
       .is('product_id', null)
       .order('id', { ascending: true })
       .range(from, to);
-    q = type === 'photo' ? q.not('image_path', 'is', null) : q.is('image_path', null);
-    return q;
-  };
 
-  const [reviewsResult, productsRes, photoCountRes, textCountRes] = await Promise.all([
-    fetchAllRows(reviewsQuery),
+  const [reviewsResult, productsRes] = await Promise.all([
+    fetchAllRows(allReviewsQuery),
     supabaseAdmin.from('products').select('id, title, image_url, price_digital').is('deleted_at', null),
-    supabaseAdmin.from('customer_reviews').select('id', { count: 'exact', head: true }).is('product_id', null).not('image_path', 'is', null),
-    supabaseAdmin.from('customer_reviews').select('id', { count: 'exact', head: true }).is('product_id', null).is('image_path', null),
   ]);
 
   if (reviewsResult.error) return NextResponse.json({ error: reviewsResult.error }, { status: 500 });
   if (productsRes.error) return NextResponse.json({ error: productsRes.error.message }, { status: 500 });
-  if (photoCountRes.error) return NextResponse.json({ error: photoCountRes.error.message }, { status: 500 });
-  if (textCountRes.error) return NextResponse.json({ error: textCountRes.error.message }, { status: 500 });
 
   const products = productsRes.data || [];
-  const queue = reviewsResult.data.map((r) => ({
+  const allRows = reviewsResult.data;
+
+  const photoRows = allRows.filter((r) => r.image_path != null && !isChristmas(r));
+  const textRows = allRows.filter((r) => r.image_path == null && !isChristmas(r));
+  const christmasRows = allRows.filter((r) => isChristmas(r));
+
+  const rowsForType = type === 'photo' ? photoRows : type === 'text' ? textRows : christmasRows;
+
+  const queue = rowsForType.map((r) => ({
     ...r,
     // product_name is null for text-only reviews whose order wasn't found in
     // the Etsy CSV export (no historical title at all) — topCandidates on an
@@ -88,6 +126,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     queue,
     total: queue.length,
-    counts: { photo: photoCountRes.count ?? 0, text: textCountRes.count ?? 0 },
+    counts: { photo: photoRows.length, text: textRows.length, christmas: christmasRows.length },
   });
 }

@@ -92,7 +92,7 @@ async function checkout() {
     <div style={{ maxWidth: 600, margin: '0 auto', padding: '100px 40px', textAlign: 'center' }}>
       <div style={{ fontSize: 40, marginBottom: 20 }}>◻</div>
       <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 10, letterSpacing: '-0.5px' }}>Your cart is empty</h1>
-      <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 32 }}>Browse our collection and find something you love.</p>
+      <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 32 }}>Buy 3 digital prints and get the cheapest one free — mix and match any styles.</p>
       <Link href="/shop" style={{ background: 'var(--accent)', color: 'white', borderRadius: 24, padding: '12px 28px', fontSize: 14, fontWeight: 500 }}>
         Browse prints →
       </Link>
@@ -118,7 +118,7 @@ async function checkout() {
       </div>
       <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24 }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</p>
 
-      {digitalCount >= 2 && (
+      {digitalCount >= 1 && (
         <div style={{
           background: freeCartIds.size > 0 ? '#F0F7EC' : '#FAF5EC',
           border: `1px solid ${freeCartIds.size > 0 ? '#8FBF6F' : 'var(--accent)'}30`,
