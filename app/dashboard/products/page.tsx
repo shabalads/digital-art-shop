@@ -351,7 +351,27 @@ const [editingTitleValue, setEditingTitleValue] = useState('');
                       <div style={{ width: 40, height: 52, borderRadius: 4, background: p.bg_color, flexShrink: 0, overflow: 'hidden' }}>
                         {p.image_url && <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                       </div>
-                      <span style={{ fontWeight: 500, maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanTitle(p.title)}</span>
+                      {editingTitleId === p.id ? (
+  <input
+    autoFocus
+    value={editingTitleValue}
+    onChange={e => setEditingTitleValue(e.target.value)}
+    onKeyDown={e => {
+      if (e.key === 'Enter') saveTitleInline(p.id);
+      if (e.key === 'Escape') setEditingTitleId(null);
+    }}
+    onBlur={() => saveTitleInline(p.id)}
+    style={{ fontSize: 13, fontWeight: 500, width: 380, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--accent)', outline: 'none' }}
+  />
+) : (
+  <span
+    title="Double-click to edit title"
+    onDoubleClick={() => { setEditingTitleId(p.id); setEditingTitleValue(p.title); }}
+    style={{ fontWeight: 500, maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' }}
+  >
+    {cleanTitle(p.title)}
+  </span>
+)}
                     </div>
                   </td>
                   <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{p.category}</td>

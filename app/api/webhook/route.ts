@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
                 downloadUrl: product?.digital_file_url || undefined,
               };
             }),
-          siteUrl: process.env.NEXT_PUBLIC_URL || 'https://itemssycrafts.com',
+          siteUrl: process.env.NEXT_PUBLIC_URL || 'https://www.itemssyprints.com',
         });
       }
 

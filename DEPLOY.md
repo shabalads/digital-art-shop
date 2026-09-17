@@ -90,7 +90,7 @@ insert into storage.buckets (id, name, public, file_size_limit)
 3. Once verified, update `.env.local` (and Vercel env vars):
    ```
    RESEND_API_KEY=re_live_xxxxxxxxxxxxxxxxxxxx   ← already set in .env.local
-   FROM_EMAIL=orders@itemssycrafts.com           ← change from onboarding@resend.dev
+   FROM_EMAIL=orders@itemssyprints.com           ← change from onboarding@resend.dev
    ```
 
 > **Note:** `onboarding@resend.dev` works for test sends only. You must verify your own domain before going live.
@@ -129,7 +129,7 @@ Settings → Environment Variables — add everything from `.env.local`:
 | `STRIPE_SECRET_KEY` | `sk_live_...` for production |
 | `STRIPE_WEBHOOK_SECRET` | from live webhook endpoint |
 | `RESEND_API_KEY` | |
-| `FROM_EMAIL` | `orders@itemssycrafts.com` |
+| `FROM_EMAIL` | `orders@itemssyprints.com` |
 | `NEXT_PUBLIC_URL` | `https://yourdomain.com` |
 | `DASHBOARD_PASSWORD` | |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | |
@@ -147,7 +147,7 @@ Redeploy after adding vars.
 
 1. Vercel → Settings → Domains → Add → enter your domain
 2. Add the A record + CNAME Vercel shows you
-3. Update `NEXT_PUBLIC_URL` to `https://itemssycrafts.com` and redeploy
+3. Update `NEXT_PUBLIC_URL` to `https://www.itemssyprints.com` and redeploy
 
 ---
 

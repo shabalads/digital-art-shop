@@ -15,11 +15,11 @@ export const metadata: Metadata = {
   keywords: ['digital wall art', 'printable wall art', 'instant download prints', 'wall art prints', 'botanical prints', 'abstract art prints'],
   authors: [{ name: 'ItemssyPrints' }],
   creator: 'ItemssyPrints',
-  metadataBase: new URL('https://itemssycrafts.com'),
+  metadataBase: new URL('https://www.itemssyprints.com'),
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://itemssycrafts.com',
+    url: 'https://www.itemssyprints.com',
     siteName: 'ItemssyPrints',
     title: 'ItemssyPrints — Digital Wall Art Prints',
     description: 'Browse 600+ digital wall art prints. Instant download or printed and shipped.',

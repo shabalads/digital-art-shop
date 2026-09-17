@@ -30,19 +30,40 @@ const MOCKUP_DEFAULTS = [
   { key: 'living', src: '/mockups/Image 5.png', room: 'Living room', roomFilter: 'Living Room', desc: 'The right print above a sofa ties the whole room together' },
 ];
 
-export default function HomeContent() {
-  const [products, setProducts] = useState<Product[]>(allProducts);
+type HomeContentProps = {
+  initialProducts?: Product[];
+  initialBestsellers?: Product[];
+  initialRecentlyAdded?: Product[];
+  initialShopCategories?: Array<{ id: string; name: string }>;
+  initialMoodSections?: Array<{ id: string; name: string; product_count: number }>;
+  initialMockupLinks?: Record<string, string>;
+};
+
+export default function HomeContent({
+  initialProducts,
+  initialBestsellers,
+  initialRecentlyAdded,
+  initialShopCategories,
+  initialMoodSections,
+  initialMockupLinks,
+}: HomeContentProps = {}) {
+  // Seeded from the server component (app/page.tsx) so Google's crawler gets
+  // the real catalog on the first HTML response instead of the hardcoded
+  // mock placeholders — the useEffects below still re-fetch client-side on
+  // top of these, unchanged from before, so behavior stays identical once
+  // JS has hydrated.
+  const [products, setProducts] = useState<Product[]>(initialProducts?.length ? initialProducts : allProducts);
   const [activeCategory, setActiveCategory] = useState('');
   const [sort, setSort] = useState('featured');
   const [loading, setLoading] = useState(false);
-const [bestsellers, setBestsellers] = useState<Product[]>(bestsellerProducts);
-const [recentlyAdded, setRecentlyAdded] = useState<Product[]>([]);
+const [bestsellers, setBestsellers] = useState<Product[]>(initialBestsellers?.length ? initialBestsellers : bestsellerProducts);
+const [recentlyAdded, setRecentlyAdded] = useState<Product[]>(initialRecentlyAdded || []);
 
 const shopRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-const [mockupLinks, setMockupLinks] = useState<Record<string, string>>({});
-const [shopCategories, setShopCategories] = useState<Array<{ id: string; name: string }>>([{ id: '', name: 'All' }]);
-const [moodSections, setMoodSections] = useState<Array<{ id: string; name: string; product_count: number }>>([]);
+const [mockupLinks, setMockupLinks] = useState<Record<string, string>>(initialMockupLinks || {});
+const [shopCategories, setShopCategories] = useState<Array<{ id: string; name: string }>>(initialShopCategories?.length ? initialShopCategories : [{ id: '', name: 'All' }]);
+const [moodSections, setMoodSections] = useState<Array<{ id: string; name: string; product_count: number }>>(initialMoodSections || []);
 
 useEffect(() => {
     fetch('/api/settings?key=mockup_links')

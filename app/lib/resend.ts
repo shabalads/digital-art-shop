@@ -18,7 +18,7 @@ export async function sendEmail({
   subject,
   html,
   text,
-  from = process.env.FROM_EMAIL || 'orders@itemssycrafts.com',
+  from = process.env.FROM_EMAIL || 'orders@itemssyprints.com',
 }: EmailPayload) {
   if (!resend || !process.env.RESEND_API_KEY) {
     console.warn('Resend is not configured; skipping email send.');

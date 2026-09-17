@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   }
 
   const selectedCurrency = currency === 'eur' ? 'eur' : 'usd';
-  const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_URL || 'https://itemssyprints.com';
+  const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_URL || 'https://www.itemssyprints.com';
   const hasPhysical = items.some((i: any) => i.type === 'physical');
 
   // ── BUNDLE DISCOUNT ──────────────────────────────────────────────────────

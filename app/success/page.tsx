@@ -10,6 +10,11 @@ function SuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
   const [cleared, setCleared] = useState(false);
+  // null = still looking up (or nothing to look up). Defaults to showing
+  // BOTH steps rather than hiding one — if the lookup fails or there's no
+  // session_id for some reason, that's the old (always show both) behavior,
+  // never a false negative that hides a step the order actually needs.
+  const [order, setOrder] = useState<{ hasDigital: boolean; hasPhysical: boolean } | null>(null);
 
   useEffect(() => {
     if (!cleared) {
@@ -18,6 +23,25 @@ function SuccessContent() {
       setCleared(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const controller = new AbortController();
+    fetch(`/api/orders/lookup?session_id=${encodeURIComponent(sessionId)}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.hasDigital === 'boolean' && typeof data.hasPhysical === 'boolean') {
+          setOrder(data);
+        }
+      })
+      .catch(() => {
+        // Leave `order` as null — falls back to showing both steps.
+      });
+    return () => controller.abort();
+  }, [sessionId]);
+
+  const showDigitalStep = order ? order.hasDigital : true;
+  const showPhysicalStep = order ? order.hasPhysical : true;
 
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', padding: '80px clamp(20px, 4vw, 40px)', textAlign: 'center' }}>
@@ -40,16 +64,16 @@ function SuccessContent() {
       <div style={{ background: 'white', border: '0.5px solid var(--border)', borderRadius: 14, padding: '24px 28px', marginBottom: 36, textAlign: 'left' }}>
         <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: 16 }}>What happens next</div>
         {[
-          { step: '1', label: 'Digital downloads', desc: 'Your files will arrive by email within minutes. Check spam if not received.' },
-{ step: '2', label: 'Physical prints', desc: 'Your print will be produced and shipped shortly — you\'ll get a shipping confirmation once it\'s on its way.' },
-          { step: '3', label: 'Need help?', desc: 'Message us anytime — response times vary, and if it\'s been over an hour on a cancellation or refund request, don\'t worry, you\'re still covered.' },
-        ].map(s => (
-          <div key={s.step} style={{ display: 'flex', gap: 14, marginBottom: 16, alignItems: 'flex-start' }}>
+          showDigitalStep && { label: 'Digital downloads', desc: 'Your files will arrive by email within minutes. Check spam if not received.' },
+          showPhysicalStep && { label: 'Physical prints', desc: 'Your print will be produced and shipped shortly — you\'ll get a shipping confirmation once it\'s on its way.' },
+          { label: 'Need help?', desc: 'Message us anytime — response times vary, and if it\'s been over an hour on a cancellation or refund request, don\'t worry, you\'re still covered.' },
+        ].filter((s): s is { label: string; desc: string } => Boolean(s)).map((s, i) => (
+          <div key={s.label} style={{ display: 'flex', gap: 14, marginBottom: 16, alignItems: 'flex-start' }}>
             <div style={{
               width: 24, height: 24, borderRadius: '50%', background: 'var(--bg-pill)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, fontWeight: 700, color: 'var(--accent-soft)', flexShrink: 0
-            }}>{s.step}</div>
+            }}>{i + 1}</div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{s.label}</div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{s.desc}</div>
