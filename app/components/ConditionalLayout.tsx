@@ -8,7 +8,7 @@ import Footer from './Footer';
 import PageWrapper from './PageWrapper';
 import MessageWidget from './MessageWidget';
 
-export default function ConditionalLayout({ children }: { children: React.ReactNode }) {
+function ConditionalLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isDashboard = pathname?.startsWith('/dashboard');
   if (isDashboard) {
@@ -25,5 +25,13 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
       <Footer />
       <MessageWidget />
     </>
+  );
+}
+
+export default function ConditionalLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense>
+      <ConditionalLayoutInner>{children}</ConditionalLayoutInner>
+    </Suspense>
   );
 }
