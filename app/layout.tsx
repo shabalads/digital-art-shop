@@ -1,7 +1,6 @@
 // app/layout.tsx
 
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
 import './globals.css';
 import { ClerkProvider } from '@clerk/nextjs';
 import ConditionalLayout from './components/ConditionalLayout';
@@ -44,9 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <ClerkProvider>
       <html lang="en">
         <body>
-          <Suspense>
-            <ConditionalLayout>{children}</ConditionalLayout>
-          </Suspense>
+          <ConditionalLayout>{children}</ConditionalLayout>
           <ScrollToTop />
         </body>
       </html>

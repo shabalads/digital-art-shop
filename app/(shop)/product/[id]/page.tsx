@@ -119,7 +119,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const url = `${BASE_URL}/product/${product.id}`;
 
   return {
-    title: `${title} | ItemssyPrints`,
+    title,
     description,
     alternates: { canonical: url },
     openGraph: {

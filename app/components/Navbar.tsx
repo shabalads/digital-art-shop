@@ -3,12 +3,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useIsMobile } from './useIsMobile';
 import { useUser, SignInButton, UserButton } from '@clerk/nextjs';
 
-function NavbarContent() {
+// Don't use useSearchParams() here: on statically prerendered pages (e.g.
+// /product/[id]) it bails the navbar out to client-side rendering, so its
+// links never reach the server HTML that crawlers see.
+export default function Navbar() {
   const [cartCount, setCartCount] = useState(0);
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -17,7 +20,6 @@ function NavbarContent() {
   const [search, setSearch] = useState('');
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const isMobile = useIsMobile();
   const { isSignedIn } = useUser();
 
@@ -121,7 +123,7 @@ function handleSearch(e: React.KeyboardEvent) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
             {navLinks.map(link => {
               const isActive = pathname === link.href ||
-                (link.href !== '/' && pathname.startsWith(link.href.split('?')[0]) && !searchParams.toString());
+                (link.href !== '/' && pathname.startsWith(link.href));
               return (
                 <Link key={link.href} href={link.href} style={{
                   fontSize: 14, fontWeight: isActive ? 600 : 400,
@@ -310,13 +312,5 @@ function handleSearch(e: React.KeyboardEvent) {
         </div>
       )}
     </>
-  );
-}
-
-export default function Navbar() {
-  return (
-    <Suspense fallback={null}>
-      <NavbarContent />
-    </Suspense>
   );
 }

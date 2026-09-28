@@ -16,7 +16,7 @@ import { Product } from '../../data/products';
 import ShopPageClient from './ShopPageClient';
 
 export const metadata: Metadata = {
-  title: 'Shop All Prints | ItemssyPrints',
+  title: 'Shop All Prints',
   description: 'Browse 600+ digital wall art prints. Instant download or printed and shipped. Abstract, botanical, typography, vintage and more.',
   alternates: { canonical: 'https://www.itemssyprints.com/shop' },
 };
