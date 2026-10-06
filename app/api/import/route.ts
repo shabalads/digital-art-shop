@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Papa from 'papaparse';
 import { supabaseAdmin } from '../../lib/supabase';
+import { requireAdmin } from '../../lib/adminAuth';
 import { uploadAssetFromUrl } from '../../lib/storage';
 
 function guessCategory(title: string): string {
@@ -46,6 +47,9 @@ function mapEtsyRow(row: Record<string, string>) {
 }
 
 export async function POST(req: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   const formData = await req.formData();
   const file = formData.get('file');
 

@@ -2,8 +2,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../lib/supabase';
+import { requireAdmin } from '../../lib/adminAuth';
 
 export async function GET() {
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   const { data, error } = await supabaseAdmin
     .from('messages')
     .select('*')
@@ -37,6 +41,9 @@ if (!email?.trim() || !message?.trim()) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   const { id, status } = await req.json();
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 

@@ -32,7 +32,11 @@ export async function POST(req: NextRequest) {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as any;
-    const items = JSON.parse(session.metadata.items || '[]');
+    // Checkout splits the items JSON across `items`, `items_1`, `items_2`, …
+    // to stay under Stripe's 500-char metadata value limit — join it back.
+    let itemsJson = session.metadata.items || '[]';
+    for (let n = 1; session.metadata[`items_${n}`]; n++) itemsJson += session.metadata[`items_${n}`];
+    const items = JSON.parse(itemsJson);
     const hasPhysical = items.some((i: any) => i.type === 'physical');
     const hasDigital = items.some((i: any) => i.type === 'digital');
 
