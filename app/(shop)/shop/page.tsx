@@ -12,14 +12,24 @@
 
 import type { Metadata } from 'next';
 import { supabaseAdmin } from '../../lib/supabase';
-import { Product } from '../../data/products';
+import { Product, toListingProduct } from '../../data/products';
 import ShopPageClient from './ShopPageClient';
 
-export const metadata: Metadata = {
-  title: 'Shop All Prints',
-  description: 'Browse 600+ digital wall art prints. Instant download or printed and shipped. Abstract, botanical, typography, vintage and more.',
-  alternates: { canonical: 'https://www.itemssyprints.com/shop' },
-};
+// /shop?page=N gets its own canonical (not /shop) so Google indexes each
+// page of the grid and follows its product links, instead of folding
+// every page into page 1. Search/section variants still canonicalise to
+// /shop.
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }): Promise<Metadata> {
+  const sp = await searchParams;
+  const page = typeof sp.page === 'string' ? parseInt(sp.page) || 1 : 1;
+  const plain = !sp.q && !sp.section && !sp.room;
+  const paged = plain && page > 1;
+  return {
+    title: paged ? `Shop All Prints – Page ${page}` : 'Shop All Prints',
+    description: 'Browse 600+ digital wall art prints. Instant download or printed and shipped. Abstract, botanical, typography, vintage and more.',
+    alternates: { canonical: `https://www.itemssyprints.com/shop${paged ? `?page=${page}` : ''}` },
+  };
+}
 
 async function fetchInitialProducts(q: string): Promise<Product[]> {
   let query = supabaseAdmin
@@ -66,5 +76,5 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
 
   const [products, sections] = await Promise.all([fetchInitialProducts(q), fetchSections()]);
 
-  return <ShopPageClient initialProducts={products} initialSections={sections} />;
+  return <ShopPageClient initialProducts={products.map(toListingProduct)} initialSections={sections} />;
 }

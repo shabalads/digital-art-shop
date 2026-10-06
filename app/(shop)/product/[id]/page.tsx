@@ -16,7 +16,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { mockProducts, Product } from '../../../data/products';
 import { supabaseAdmin } from '../../../lib/supabase';
-import { cleanTitle, cleanDescription } from './product-utils';
+import { cleanDescription, seoTitle, metaDescription } from './product-utils';
+import { PHYSICAL_SIZES } from '../../../data/physical-sizes';
 import ProductPageClient from './ProductPageClient';
 
 const BASE_URL = 'https://www.itemssyprints.com';
@@ -114,8 +115,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const product = await fetchProduct(id);
   if (!product) return { title: 'Product not found' };
 
-  const title = cleanTitle(product.title);
-  const description = cleanDescription(product.description || '').slice(0, 160);
+  const title = seoTitle(product.title);
+  const description = metaDescription(product.title, product.description || '');
   const url = `${BASE_URL}/product/${product.id}`;
 
   return {
@@ -138,5 +139,35 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
   const related = await fetchRelated(product);
 
-  return <ProductPageClient product={product} related={related} />;
+  // Product structured data — lets Google show price/availability in
+  // results. Deliberately no aggregateRating: the on-page review count is
+  // site-wide, not per product, and Google penalises ratings that aren't.
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: seoTitle(product.title),
+    description: cleanDescription(product.description || '') || metaDescription(product.title, ''),
+    image: product.image_url ? [product.image_url] : undefined,
+    sku: product.id,
+    brand: { '@type': 'Brand', name: 'ItemssyPrints' },
+    offers: {
+      '@type': 'AggregateOffer',
+      priceCurrency: 'USD',
+      lowPrice: product.price_digital,
+      highPrice: Math.max(product.price_digital, ...PHYSICAL_SIZES.map((s) => s.price)),
+      offerCount: 1 + PHYSICAL_SIZES.length,
+      availability: product.active && !product.deleted_at ? 'https://schema.org/InStock' : 'https://schema.org/Discontinued',
+      url: `${BASE_URL}/product/${product.id}`,
+    },
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
+      />
+      <ProductPageClient product={product} related={related} />
+    </>
+  );
 }
