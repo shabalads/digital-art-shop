@@ -4,36 +4,88 @@ import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { stripe } from '../../lib/stripe';
 import { convert } from '../../lib/currency';
+import { supabaseAdmin } from '../../lib/supabase';
+import { PHYSICAL_SIZES } from '../../data/physical-sizes';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Stripe caps each metadata value at 500 characters, so the items JSON is
+// split across `items`, `items_1`, `items_2`, … (the webhook joins them back).
+const METADATA_CHUNK = 500;
 
 export async function POST(req: NextRequest) {
   const { items, customerEmail, currency, promoCode } = await req.json();
 
-  if (!items || items.length === 0) {
+  if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: 'No items' }, { status: 400 });
   }
 
   const selectedCurrency = currency === 'eur' ? 'eur' : 'usd';
   const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_URL || 'https://www.itemssyprints.com';
-  const hasPhysical = items.some((i: any) => i.type === 'physical');
+
+  // ── SERVER-SIDE PRICING ──────────────────────────────────────────────────
+  // The browser only tells us which product, digital vs physical, which
+  // size and how many. Price, title and fulfilment variant ids all come from
+  // the database / PHYSICAL_SIZES — never from the request — so a tampered
+  // cart can't buy prints for $0.01 or swap in a bigger print's variant.
+  const ids = [...new Set(items.map((i: any) => String(i?.id ?? '')))].filter((id) => UUID_RE.test(id));
+  const { data: rows, error: productsError } = ids.length
+    ? await supabaseAdmin
+        .from('products')
+        .select('id, title, price_digital, active, deleted_at, printful_variants, printify_variants, gelato_variants')
+        .in('id', ids)
+    : { data: [], error: null };
+  if (productsError) return NextResponse.json({ error: 'Could not load products' }, { status: 500 });
+  const byId = new Map((rows || []).map((p: any) => [p.id, p]));
+
+  const resolved: any[] = [];
+  for (const raw of items) {
+    const product: any = byId.get(String(raw?.id ?? ''));
+    if (!product || !product.active || product.deleted_at) {
+      return NextResponse.json({ error: 'Some items in your cart are no longer available.' }, { status: 400 });
+    }
+    const quantity = Math.min(Math.max(Math.floor(Number(raw.quantity) || 1), 1), 20);
+
+    if (raw.type === 'physical') {
+      const size = PHYSICAL_SIZES.find((s) => s.label === raw.size);
+      if (!size) return NextResponse.json({ error: 'Unknown print size.' }, { status: 400 });
+      resolved.push({
+        id: product.id,
+        title: product.title,
+        type: 'physical',
+        price: size.price,
+        quantity,
+        printful_variant_id: product.printful_variants?.[size.key] ?? null,
+        printify_variant_id: product.printify_variants?.[size.key] ?? null,
+        gelato_variant_id: product.gelato_variants?.[size.key] ?? null,
+      });
+    } else {
+      resolved.push({
+        id: product.id,
+        title: product.title,
+        type: 'digital',
+        price: Number(product.price_digital),
+        quantity,
+        printful_variant_id: null,
+        printify_variant_id: null,
+        gelato_variant_id: null,
+      });
+    }
+  }
+  const hasPhysical = resolved.some((i) => i.type === 'physical');
 
   // ── BUNDLE DISCOUNT ──────────────────────────────────────────────────────
-  // Buy 3+ digital prints → cheapest one is free.
-  // Applied server-side so it's actually enforced, not just a UI message.
-  const digitalItems: any[] = items.filter((i: any) => i.type === 'digital');
-  const physicalItems: any[] = items.filter((i: any) => i.type === 'physical');
-
-  let processedDigital = digitalItems;
-
-  if (digitalItems.length >= 3) {
-    // Sort cheapest first, make cheapest one free
-    const sorted = [...digitalItems].sort((a, b) => a.price - b.price);
-    const freeItem = sorted[0];
-    processedDigital = digitalItems.map((item: any) =>
-      item.id === freeItem.id && item.size === freeItem.size
-        ? { ...item, price: 0, originalPrice: item.price, isFreeBundle: true }
-        : item
-    );
-  }
+  // Every full group of 3 digital prints → the cheapest of that group is
+  // free. Same rule the cart page shows (app/(shop)/cart/page.tsx), applied
+  // here so it's actually enforced, not just a UI message.
+  const digitalItems = resolved.filter((i) => i.type === 'digital');
+  const physicalItems = resolved.filter((i) => i.type === 'physical');
+  const sortedDigital = [...digitalItems].sort((a, b) => a.price - b.price);
+  const freeItems = new Set<any>();
+  for (let i = 0; i + 2 < sortedDigital.length; i += 3) freeItems.add(sortedDigital[i]);
+  const processedDigital = digitalItems.map((item) =>
+    freeItems.has(item) ? { ...item, price: 0, originalPrice: item.price, isFreeBundle: true } : item
+  );
 
   const allItems = [...processedDigital, ...physicalItems];
   // ─────────────────────────────────────────────────────────────────────────
@@ -112,17 +164,15 @@ export async function POST(req: NextRequest) {
     customer_email: customerEmail || undefined,
     success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/cart`,
-    metadata: {
-      items: JSON.stringify(allItems.map((i: any) => ({
-        id: i.id,
-        type: i.type,
-        price: i.price,
-        quantity: i.quantity,
-        printful_variant_id: i.printful_variant_id ?? null,
-        printify_variant_id: i.printify_variant_id ?? null,
-        gelato_variant_id: i.gelato_variant_id ?? null,
-      }))),
-    },
+    metadata: chunkMetadata(JSON.stringify(allItems.map((i: any) => ({
+      id: i.id,
+      type: i.type,
+      price: i.price,
+      quantity: i.quantity,
+      printful_variant_id: i.printful_variant_id ?? null,
+      printify_variant_id: i.printify_variant_id ?? null,
+      gelato_variant_id: i.gelato_variant_id ?? null,
+    })))),
     shipping_address_collection: hasPhysical
       ? { allowed_countries: ['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'NL', 'CZ', 'SK'] }
       : undefined,
@@ -131,4 +181,12 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ url: session.url });
+}
+
+function chunkMetadata(itemsJson: string): Record<string, string> {
+  const metadata: Record<string, string> = {};
+  for (let start = 0, n = 0; start < itemsJson.length; start += METADATA_CHUNK, n++) {
+    metadata[n === 0 ? 'items' : `items_${n}`] = itemsJson.slice(start, start + METADATA_CHUNK);
+  }
+  return metadata;
 }

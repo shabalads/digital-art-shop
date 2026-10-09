@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description: 'ItemssyPrints privacy policy — how we collect and use your data.',
+  alternates: { canonical: '/privacy' },
 };
 
 export default function PrivacyPage() {

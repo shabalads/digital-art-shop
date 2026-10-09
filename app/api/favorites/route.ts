@@ -1,10 +1,14 @@
 // app/api/favorites/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { supabaseAdmin } from '../../lib/supabase';
 
-export async function GET(req: NextRequest) {
-  const userId = new URL(req.url).searchParams.get('userId');
+// The user id always comes from the Clerk session, never from the request —
+// otherwise anyone could read or toggle another customer's favorites.
+
+export async function GET() {
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ favorites: [] });
 
   const { data } = await supabaseAdmin
@@ -16,8 +20,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { userId, productId } = await req.json();
-  if (!userId || !productId) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+  const { productId } = await req.json();
+  if (!productId) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
   const { data: existing } = await supabaseAdmin
     .from('favorites')

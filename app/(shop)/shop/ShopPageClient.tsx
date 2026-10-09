@@ -14,6 +14,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import ProductCard from '../../components/ProductCard';
 import SkeletonCard from '../../components/SkeletonCard';
 import { Product } from '../../data/products';
@@ -114,13 +115,14 @@ function selectSection(id: string) {
     router.push(`/shop${params.toString() ? '?' + params.toString() : ''}`);
   }
 
-  function goToPage(n: number) {
+  // Real <a href> links (not onClick buttons) so Googlebot can follow
+  // pagination and reach every product, not just the first page's 40.
+  function pageHref(n: number) {
     const params = new URLSearchParams();
     if (activeSection) params.set('section', activeSection);
     if (qParam) params.set('q', qParam);
     if (n > 1) params.set('page', String(n));
-    router.push(`/shop${params.toString() ? '?' + params.toString() : ''}`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return `/shop${params.toString() ? '?' + params.toString() : ''}`;
   }
 
   return (
@@ -238,7 +240,9 @@ function selectSection(id: string) {
       {/* Pagination */}
       {!loading && totalPages > 1 && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 48, flexWrap: 'wrap' }}>
-<button onClick={() => goToPage(Math.max(1, page - 1))} disabled={page === 1} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: page === 1 ? 'not-allowed' : 'pointer', background: 'white', border: '0.5px solid var(--border)', color: page === 1 ? 'var(--text-muted)' : 'var(--text-primary)', opacity: page === 1 ? 0.4 : 1 }}>← Previous</button>
+{page === 1
+            ? <span style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: 'not-allowed', background: 'white', border: '0.5px solid var(--border)', color: 'var(--text-muted)', opacity: 0.4 }}>← Previous</span>
+            : <Link href={pageHref(page - 1)} rel="prev" style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'white', border: '0.5px solid var(--border)', color: 'var(--text-primary)', textDecoration: 'none' }}>← Previous</Link>}
           {Array.from({ length: totalPages }, (_, i) => i + 1)
             .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
             .reduce((acc: (number | string)[], n, idx, arr) => {
@@ -248,10 +252,12 @@ function selectSection(id: string) {
             }, [])
             .map((n, i) => n === '...'
               ? <span key={`dot-${i}`} style={{ padding: '0 4px', color: 'var(--text-muted)' }}>…</span>
-              : <button key={n} onClick={() => goToPage(n as number)} style={{ width: 36, height: 36, borderRadius: 8, fontSize: 13, cursor: 'pointer', background: page === n ? 'var(--accent)' : 'white', border: `0.5px solid ${page === n ? 'var(--accent)' : 'var(--border)'}`, color: page === n ? 'white' : 'var(--text-primary)', fontWeight: page === n ? 600 : 400 }}>{n}</button>
+              : <Link key={n} href={pageHref(n as number)} aria-current={page === n ? 'page' : undefined} style={{ width: 36, height: 36, borderRadius: 8, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', background: page === n ? 'var(--accent)' : 'white', border: `0.5px solid ${page === n ? 'var(--accent)' : 'var(--border)'}`, color: page === n ? 'white' : 'var(--text-primary)', fontWeight: page === n ? 600 : 400 }}>{n}</Link>
             )
           }
-          <button onClick={() => goToPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: page === totalPages ? 'not-allowed' : 'pointer', background: 'white', border: '0.5px solid var(--border)', color: page === totalPages ? 'var(--text-muted)' : 'var(--text-primary)', opacity: page === totalPages ? 0.4 : 1 }}>Next →</button>
+          {page === totalPages
+            ? <span style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: 'not-allowed', background: 'white', border: '0.5px solid var(--border)', color: 'var(--text-muted)', opacity: 0.4 }}>Next →</span>
+            : <Link href={pageHref(page + 1)} rel="next" style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'white', border: '0.5px solid var(--border)', color: 'var(--text-primary)', textDecoration: 'none' }}>Next →</Link>}
         </div>
       )}
       {!loading && totalPages > 1 && (

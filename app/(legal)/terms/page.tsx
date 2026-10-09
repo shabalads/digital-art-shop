@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Terms of Use',
   description: 'ItemssyPrints terms of use for digital downloads and physical prints.',
+  alternates: { canonical: '/terms' },
 };
 
 export default function TermsPage() {

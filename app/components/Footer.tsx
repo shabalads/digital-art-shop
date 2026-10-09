@@ -26,9 +26,9 @@ export default function Footer() {
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: 14 }}>Shop</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Link href="/shop" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>All prints</Link>
-            <Link href="/shop?cat=botanical" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Botanical</Link>
-            <Link href="/shop?cat=abstract" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Abstract</Link>
-            <Link href="/shop?cat=typography" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Typography</Link>
+            <Link href="/shop?q=botanical" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Botanical</Link>
+            <Link href="/shop?q=abstract" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Abstract</Link>
+            <Link href="/shop?q=typography" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Typography</Link>
           </div>
         </div>
         <div>

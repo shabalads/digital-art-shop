@@ -2,8 +2,12 @@
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../lib/supabase';
+import { requireAdmin } from '../../lib/adminAuth';
 
 export async function GET() {
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   const { data, error } = await supabaseAdmin
     .from('orders')
     .select('*')

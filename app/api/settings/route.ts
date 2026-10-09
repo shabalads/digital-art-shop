@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../lib/supabase';
+import { requireAdmin } from '../../lib/adminAuth';
 
 export async function GET(req: NextRequest) {
   const key = new URL(req.url).searchParams.get('key');
@@ -18,6 +19,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   const { key, value } = await req.json();
   if (!key) return NextResponse.json({ error: 'Missing key' }, { status: 400 });
 

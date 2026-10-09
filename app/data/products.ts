@@ -20,7 +20,21 @@ export type Product = {
   digital_file_url?: string;
   active: boolean;
   created_at?: string;
+  deleted_at?: string | null;
 };
+
+// Listing grids (home, shop) only need card fields. Dropping the long
+// Etsy description and the print-provider variant maps keeps those pages'
+// HTML from carrying ~1.5 MB of serialized product data.
+export function toListingProduct(p: Product): Product {
+  const card = { ...p };
+  delete card.description;
+  delete card.printful_variants;
+  delete card.printify_variants;
+  delete card.gelato_variants;
+  delete card.digital_file_url;
+  return card;
+}
 
 export type Section = {
   id: string;

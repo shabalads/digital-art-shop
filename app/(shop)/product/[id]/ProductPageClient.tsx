@@ -14,6 +14,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Product } from '../../../data/products';
+import { PHYSICAL_SIZES } from '../../../data/physical-sizes';
 import ProductCard from '../../../components/ProductCard';
 import CartToast from '../../../components/CartToast';
 import ImageZoom from '../../../components/ImageZoom';
@@ -31,21 +32,6 @@ const DIGITAL_SIZES = [
   { ratio: '11:14', label: 'Portrait', sizes: ['11×14"', '22×28"'] },
 ];
 
-// `key` here MUST match the size keys used in products.printful_variants
-// (written by scripts/printful-bulk-create.js) — this is how we look up the
-// right printful_variant_id for whatever size the customer picks.
-const PHYSICAL_SIZES = [
-  { label: '5×7"', key: '5x7', price: 19.99, popular: false },
-  { label: '8×10"', key: '8x10', price: 24.99, popular: true },
-  { label: '8×12"', key: '8x12', price: 26.99, popular: false },
-  { label: '11×14"', key: '11x14', price: 34.99, popular: true },
-  { label: 'A4', key: 'a4', price: 22.99, popular: false },
-  { label: 'A3', key: 'a3', price: 32.99, popular: false },
-  { label: '16×20"', key: '16x20', price: 44.99, popular: false },
-  { label: '18×24"', key: '18x24', price: 54.99, popular: false },
-  { label: 'A2', key: 'a2', price: 49.99, popular: false },
-  { label: '24×36"', key: '24x36', price: 69.99, popular: false },
-];
 
 function ProductBadge({ tag, style, description }: { tag: string; style: { color: string; icon: React.ReactNode }; description: string }) {
   const [hovered, setHovered] = useState(false);

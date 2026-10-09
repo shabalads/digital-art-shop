@@ -7,6 +7,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Refund Policy',
   description: 'ItemssyPrints refund policy for digital downloads and physical prints.',
+  alternates: { canonical: '/refunds' },
 };
 
 export default function RefundsPage() {

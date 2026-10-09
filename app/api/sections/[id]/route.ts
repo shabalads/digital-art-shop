@@ -2,9 +2,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase';
+import { requireAdmin } from '../../../lib/adminAuth';
 
 // PATCH — add or remove products from a section
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   const { id: sectionId } = await params;
   const { productIds, action } = await req.json();
   // action: 'add' | 'remove'

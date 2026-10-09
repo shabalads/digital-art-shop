@@ -13,11 +13,12 @@
 import type { Metadata } from 'next';
 import HomeContent from './components/HomeContent';
 import { supabaseAdmin } from './lib/supabase';
-import { Product } from './data/products';
+import { Product, toListingProduct } from './data/products';
 
 export const metadata: Metadata = {
   title: 'Digital Wall Art Prints — Instant Download',
   description: 'Shop 600+ digital wall art prints. Instant download or get it printed and shipped. Abstract, botanical, typography, vintage and more.',
+  alternates: { canonical: '/' },
 };
 
 export const revalidate = 3600;
@@ -114,14 +115,26 @@ export default async function Home() {
     fetchMockupLinks(),
   ]);
 
+  // Tells Google what the site is and what brand name to show in results.
+  const jsonLd = [
+    { '@context': 'https://schema.org', '@type': 'Organization', name: 'ItemssyPrints', url: 'https://www.itemssyprints.com' },
+    { '@context': 'https://schema.org', '@type': 'WebSite', name: 'ItemssyPrints', url: 'https://www.itemssyprints.com' },
+  ];
+
   return (
-    <HomeContent
-      initialProducts={products}
-      initialBestsellers={bestsellers}
-      initialRecentlyAdded={recentlyAdded}
-      initialShopCategories={shopCategories}
-      initialMoodSections={moodSections}
-      initialMockupLinks={mockupLinks}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
+      />
+      <HomeContent
+        initialProducts={products.map(toListingProduct)}
+        initialBestsellers={bestsellers.map(toListingProduct)}
+        initialRecentlyAdded={recentlyAdded.map(toListingProduct)}
+        initialShopCategories={shopCategories}
+        initialMoodSections={moodSections}
+        initialMockupLinks={mockupLinks}
+      />
+    </>
   );
 }

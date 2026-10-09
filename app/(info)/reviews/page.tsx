@@ -6,6 +6,7 @@ import CustomerReviewsGallery from '../../components/CustomerReviewsGallery';
 export const metadata: Metadata = {
   title: 'Customer Reviews',
   description: 'Real customer photos and reviews of ItemssyPrints digital wall art and physical prints.',
+  alternates: { canonical: '/reviews' },
 };
 
 export default function ReviewsPage() {
