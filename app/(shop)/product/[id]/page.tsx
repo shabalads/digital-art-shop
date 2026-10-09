@@ -22,6 +22,11 @@ import ProductPageClient from './ProductPageClient';
 
 const BASE_URL = 'https://www.itemssyprints.com';
 
+// Without this the pre-rendered pages never refresh until the next deploy:
+// a price/title/description edited in the dashboard (or a trashed product)
+// would keep showing the old version while checkout charges the new price.
+export const revalidate = 3600;
+
 // Wrapped in React.cache so the same request-scoped fetch is reused by both
 // generateMetadata and the page component itself — Next.js only dedupes
 // plain fetch() calls automatically, not direct Supabase client calls, so
@@ -81,8 +86,10 @@ async function fetchRelated(product: Product): Promise<Product[]> {
     return (fuzzyRelated as Product[]).filter((r) => r.id !== product.id).slice(0, 4);
   }
 
-  // mockProducts fallback, matching the old client page's category match.
-  return mockProducts.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  // No placeholder fallback: the built-in mock products aren't real listings
+  // (their pages are noindex), so showing them as "related" would put fake
+  // products in front of customers and link Google to them.
+  return [];
 }
 
 export async function generateStaticParams() {
@@ -119,10 +126,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const description = metaDescription(product.title, product.description || '');
   const url = `${BASE_URL}/product/${product.id}`;
 
+  // Trashed/inactive products and the built-in placeholder products still
+  // resolve (so old links keep working) but must not be indexed.
+  const indexable = product.active && !product.deleted_at && !mockProducts.some((m) => m.id === product.id);
+
   return {
     title,
     description,
     alternates: { canonical: url },
+    ...(indexable ? {} : { robots: { index: false, follow: true } }),
     openGraph: {
       title,
       description,

@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'About',
   description: 'Learn about ItemssyPrints — digital wall art prints designed with care, delivered instantly or shipped to your door.',
+  alternates: { canonical: '/about' },
 };
 
 export default function AboutPage() {

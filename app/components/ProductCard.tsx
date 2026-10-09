@@ -126,7 +126,7 @@ const [hovered, setHovered] = useState(false);
       }}>
         <div style={{ background: product.bg_color, aspectRatio: '3/4', overflow: 'hidden', position: 'relative' }}>
           {product.image_url ? (
-            <img src={product.image_url} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s', transform: hovered ? 'scale(1.03)' : 'scale(1)' }} />
+            <img src={product.image_url} alt={`${cleanProductTitle(product.title)} wall art print`} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s', transform: hovered ? 'scale(1.03)' : 'scale(1)' }} />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.25 }}>
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -188,7 +188,6 @@ const [hovered, setHovered] = useState(false);
         <div style={{ padding: '12px 14px 14px' }}>
           <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>
             {cleanProductTitle(product.title)}
-            <span style={{ display: 'none' }}>{product.title}</span>
           </div>
 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'capitalize' }}>{product.category}</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

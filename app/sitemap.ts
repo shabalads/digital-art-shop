@@ -29,9 +29,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/terms', priority: 0.3, changeFrequency: 'yearly' },
   ];
 
+  // No lastModified here on purpose: it used to be `new Date()`, i.e. "now"
+  // on every regeneration, which isn't a real modification date. Google
+  // learns to ignore lastmod entirely from sites whose dates aren't accurate.
   const staticEntries: MetadataRoute.Sitemap = staticPages.map(({ path, priority, changeFrequency }) => ({
     url: `${BASE_URL}${path}`,
-    lastModified: new Date(),
     changeFrequency,
     priority,
   }));

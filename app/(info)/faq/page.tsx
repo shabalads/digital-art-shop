@@ -6,6 +6,7 @@ import FAQContent from '../../components/FAQContent';
 export const metadata: Metadata = {
   title: 'FAQ',
   description: 'Frequently asked questions about ItemssyPrints digital prints, file formats, shipping, and refunds.',
+  alternates: { canonical: '/faq' },
 };
 
 export default function FAQPage() {
