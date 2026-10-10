@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { cleanProductTitle } from '../lib/text';
+import { cleanProductTitle, displayFirstName } from '../lib/text';
 import ReviewLightbox from './ReviewLightbox';
 
 export type CustomerReviewRow = {
@@ -17,6 +17,7 @@ export type CustomerReviewRow = {
   quote: string | null;
   rating: number | null;
   review_date: string | null;
+  review_date_parsed?: string | null;
   product_id?: string | null;
   // Current live products.title for review.product_id, joined server-side
   // in /api/reviews — see the comment there for why this can't be a
@@ -25,13 +26,10 @@ export type CustomerReviewRow = {
   product_title?: string | null;
 };
 
-function displayFirstName(reviewerName: string): string {
-  const cleaned = reviewerName.replace(/[()]/g, '').trim();
-  if (!cleaned || cleaned.toLowerCase() === 'anonymous') return 'Verified Buyer';
-  return cleaned.split(/\s+/)[0];
-}
-
-export default function ReviewCard({ review }: { review: CustomerReviewRow }) {
+// structuredData=false is used on product pages, where the page's own Product
+// JSON-LD already nests these reviews — a second standalone Review block per
+// card would add loose, price-less Product items for Google to flag.
+export default function ReviewCard({ review, structuredData = true }: { review: CustomerReviewRow; structuredData?: boolean }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const firstName = displayFirstName(review.reviewer_name);
   const hasImage = Boolean(review.image_path);
@@ -50,7 +48,7 @@ export default function ReviewCard({ review }: { review: CustomerReviewRow }) {
   const displayProductName = rawProductName ? cleanProductTitle(rawProductName) : null;
   // Only emit Review structured data when we have a real rating + quote +
   // product name to attach it to — never fabricate any of those.
-  const hasQuote = Boolean(review.quote && review.rating && rawProductName);
+  const hasQuote = structuredData && Boolean(review.quote && review.rating && rawProductName);
 
   return (
     <div style={{

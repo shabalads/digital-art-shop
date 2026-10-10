@@ -7,8 +7,8 @@
 // Google's crawler gets real content on the very first HTML response.
 // Everything below is otherwise unchanged behavior: cart, favorites
 // (Clerk via HeartButton), image zoom, type/size selection, bundle nudge,
-// and ProductReviews (which still self-fetches reviews client-side — out
-// of scope for this SSR pass).
+// and ProductReviews (whose reviews now arrive as a server-fetched prop so
+// they're in the HTML Googlebot reads).
 
 'use client';
 
@@ -22,6 +22,7 @@ import { useIsMobile } from '../../../components/useIsMobile';
 import Link from 'next/link';
 import HeartButton from '../../../components/HeartButton';
 import ProductReviews from '../../../components/ProductReviews';
+import type { CustomerReviewRow } from '../../../components/ReviewCard';
 import { cleanTitle, cleanDescription } from './product-utils';
 
 const DIGITAL_SIZES = [
@@ -66,7 +67,7 @@ function ProductBadge({ tag, style, description }: { tag: string; style: { color
   );
 }
 
-export default function ProductPageClient({ product, related }: { product: Product; related: Product[] }) {
+export default function ProductPageClient({ product, related, reviews }: { product: Product; related: Product[]; reviews: { photos: CustomerReviewRow[]; text: CustomerReviewRow[] } }) {
   const [type, setType] = useState<'digital' | 'physical'>('digital');
   const [activeImage, setActiveImage] = useState<string | undefined>(product.image_url);
   const [selectedSize, setSelectedSize] = useState(PHYSICAL_SIZES[1].label); // default 8×10"
@@ -426,7 +427,7 @@ export default function ProductPageClient({ product, related }: { product: Produ
         </div>
       </div>
 
-      <ProductReviews productId={product.id} />
+      <ProductReviews productId={product.id} initial={reviews} />
 
       {/* Related */}
       {related.length > 0 && (

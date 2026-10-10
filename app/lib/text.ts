@@ -20,3 +20,14 @@ export function cleanProductTitle(raw: string): string {
   if (cleaned.length > 50) cleaned = cleaned.substring(0, 50).split(' ').slice(0, -1).join(' ');
   return cleaned;
 }
+
+
+// How a reviewer is shown publicly: first name only, "Verified Buyer" when
+// the name is missing/anonymous. Lives here (not in ReviewCard, a client
+// component) so server code — the product page's JSON-LD — can use the exact
+// same rule and the markup always matches what's visible on the page.
+export function displayFirstName(reviewerName: string | null | undefined): string {
+  const cleaned = (reviewerName || '').replace(/[()]/g, '').trim();
+  if (!cleaned || cleaned.toLowerCase() === 'anonymous') return 'Verified Buyer';
+  return cleaned.split(/\s+/)[0];
+}
