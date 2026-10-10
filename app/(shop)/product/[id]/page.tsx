@@ -19,6 +19,8 @@ import { supabaseAdmin } from '../../../lib/supabase';
 import { cleanDescription, seoTitle, metaDescription } from './product-utils';
 import { PHYSICAL_SIZES } from '../../../data/physical-sizes';
 import ProductPageClient from './ProductPageClient';
+import type { CustomerReviewRow } from '../../../components/ReviewCard';
+import { reviewJsonLd } from '../../../lib/reviews';
 
 const BASE_URL = 'https://www.itemssyprints.com';
 
@@ -92,6 +94,31 @@ async function fetchRelated(product: Product): Promise<Product[]> {
   return [];
 }
 
+// The real customer reviews linked to this product (customer_reviews.product_id),
+// same ordering as /api/reviews. Fetched here on the server — and rendered
+// into the HTML — because robots.txt blocks /api, so Googlebot never sees
+// reviews that are loaded in the browser. Mock ids aren't UUIDs and would
+// make Postgres reject the query, so they skip it.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function fetchReviews(product: Product): Promise<CustomerReviewRow[]> {
+  if (!UUID_RE.test(product.id)) return [];
+  const { data, error } = await supabaseAdmin
+    .from('customer_reviews')
+    .select('*')
+    .eq('product_id', product.id)
+    .order('review_date_parsed', { ascending: false, nullsFirst: false })
+    .order('display_order', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(100);
+  if (error) {
+    console.error('product page: failed to fetch reviews:', error.message);
+    return [];
+  }
+  // Every row is linked to this product, so show its current live title
+  // (what /api/reviews' product_title join does).
+  return ((data || []) as CustomerReviewRow[]).map((r) => ({ ...r, product_title: product.title }));
+}
+
 export async function generateStaticParams() {
   // Pre-render every active, non-deleted product — same scope the sitemap
   // uses (app/sitemap.ts), so what's indexed and what's statically built
@@ -149,11 +176,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const product = await fetchProduct(id);
   if (!product) notFound();
 
-  const related = await fetchRelated(product);
+  const [related, reviews] = await Promise.all([fetchRelated(product), fetchReviews(product)]);
 
   // Product structured data — lets Google show price/availability in
-  // results. Deliberately no aggregateRating: the on-page review count is
-  // site-wide, not per product, and Google penalises ratings that aren't.
+  // results. aggregateRating/review come only from this product's real
+  // linked reviews (see app/lib/reviews.ts) and are omitted entirely when it
+  // has none. The "4.8 · 1,200+ reviews" banner on the page is a site-wide
+  // figure, so it is deliberately NOT used here.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -171,6 +200,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       availability: product.active && !product.deleted_at ? 'https://schema.org/InStock' : 'https://schema.org/Discontinued',
       url: `${BASE_URL}/product/${product.id}`,
     },
+    ...reviewJsonLd(reviews),
   };
 
   return (
@@ -179,7 +209,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
-      <ProductPageClient product={product} related={related} />
+      <ProductPageClient
+        product={product}
+        related={related}
+        reviews={{ photos: reviews.filter((r) => r.image_path), text: reviews.filter((r) => !r.image_path) }}
+      />
     </>
   );
 }

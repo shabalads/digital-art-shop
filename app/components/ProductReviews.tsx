@@ -20,12 +20,17 @@ async function fetchReviews(productId: string, type: 'photo' | 'text', signal: A
   return data.reviews || [];
 }
 
-export default function ProductReviews({ productId }: { productId: string }) {
-  const [photos, setPhotos] = useState<CustomerReviewRow[]>([]);
-  const [textReviews, setTextReviews] = useState<CustomerReviewRow[]>([]);
-  const [loaded, setLoaded] = useState(false);
+// `initial` is the server-fetched list from the product page — rendered
+// straight into the HTML so Googlebot can read the reviews (robots.txt
+// blocks /api, so the browser-side fetch below is invisible to it). Without
+// it the component falls back to fetching client-side as before.
+export default function ProductReviews({ productId, initial }: { productId: string; initial?: { photos: CustomerReviewRow[]; text: CustomerReviewRow[] } }) {
+  const [photos, setPhotos] = useState<CustomerReviewRow[]>(initial?.photos ?? []);
+  const [textReviews, setTextReviews] = useState<CustomerReviewRow[]>(initial?.text ?? []);
+  const [loaded, setLoaded] = useState(Boolean(initial));
 
   useEffect(() => {
+    if (initial) return;
     const controller = new AbortController();
     setLoaded(false);
     async function load() {
@@ -47,7 +52,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
     }
     load();
     return () => controller.abort();
-  }, [productId]);
+  }, [productId, initial]);
 
   const hasPhotos = photos.length > 0;
   const hasText = textReviews.length > 0;
@@ -69,7 +74,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
             {hasText && <SubLabel>Customer photos</SubLabel>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20, alignItems: 'start' }}>
               {photos.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+                <ReviewCard key={review.id} review={review} structuredData={false} />
               ))}
             </div>
           </div>
@@ -80,7 +85,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
             {hasPhotos && <SubLabel>More reviews</SubLabel>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20, alignItems: 'start' }}>
               {textReviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+                <ReviewCard key={review.id} review={review} structuredData={false} />
               ))}
             </div>
           </div>
