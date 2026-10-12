@@ -23,6 +23,10 @@ export type Product = {
   deleted_at?: string | null;
 };
 
+// Products per page on /shop. Shared (not defined in the client component)
+// so the server page can tell when ?page=N is past the last page.
+export const SHOP_PAGE_SIZE = 40;
+
 // Listing grids (home, shop) only need card fields. Dropping the long
 // Etsy description and the print-provider variant maps keeps those pages'
 // HTML from carrying ~1.5 MB of serialized product data.

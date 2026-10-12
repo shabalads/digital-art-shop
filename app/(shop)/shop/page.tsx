@@ -11,9 +11,17 @@
 // in the first HTML response with no JS required.
 
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '../../lib/supabase';
-import { Product, toListingProduct } from '../../data/products';
+import { Product, SHOP_PAGE_SIZE, toListingProduct } from '../../data/products';
 import ShopPageClient from './ShopPageClient';
+
+// Only what the grid and its filters/sort actually use — the long Etsy
+// description and print-provider variant maps are never shown here, and
+// select('*') made every request pull ~1.4 MB from the database.
+const LISTING_COLUMNS =
+  'id,title,category,price_digital,price_physical,badge,tags,section_ids,room,bg_color,image_url,home_sort_order,sort_order,active,created_at';
 
 // /shop?page=N gets its own canonical (not /shop) so Google indexes each
 // page of the grid and follows its product links, instead of folding
@@ -25,6 +33,9 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const plain = !sp.q && !sp.section && !sp.room;
   const paged = plain && page > 1;
   return {
+    // Internal search results are thin, endless variations — keep them out of
+    // the index but let Google follow their product links.
+    ...(sp.q ? { robots: { index: false, follow: true } } : {}),
     title: paged ? `Shop All Prints – Page ${page}` : 'Shop All Prints',
     description: 'Browse 600+ digital wall art prints. Instant download or printed and shipped. Abstract, botanical, typography, vintage and more.',
     alternates: { canonical: `https://www.itemssyprints.com/shop${paged ? `?page=${page}` : ''}` },
@@ -34,7 +45,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 async function fetchInitialProducts(q: string): Promise<Product[]> {
   let query = supabaseAdmin
     .from('products')
-    .select('*')
+    .select(LISTING_COLUMNS)
     .eq('active', true)
     .is('deleted_at', null)
     .order('home_sort_order', { ascending: true, nullsFirst: false })
@@ -65,6 +76,12 @@ async function fetchInitialProducts(q: string): Promise<Product[]> {
   return (data || []) as Product[];
 }
 
+// The unfiltered catalog is identical for every visitor and every ?page=N, so
+// share one copy across requests for 5 minutes instead of re-querying the
+// database each time (a crawl of all 13 pages used to mean 13 full queries,
+// ~1.7 s each). Searches (q) are arbitrary strings and stay uncached.
+const getCachedCatalog = unstable_cache(() => fetchInitialProducts(''), ['shop-catalog'], { revalidate: 300 });
+
 async function fetchSections(): Promise<Array<{ id: string; name: string }>> {
   const { data } = await supabaseAdmin.from('sections').select('id, name').order('sort_order', { ascending: true });
   return data || [];
@@ -74,7 +91,15 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const q = typeof sp.q === 'string' ? sp.q : '';
 
-  const [products, sections] = await Promise.all([fetchInitialProducts(q), fetchSections()]);
+  const [products, sections] = await Promise.all([q ? fetchInitialProducts(q) : getCachedCatalog(), fetchSections()]);
+
+  // ?page=14 on a 13-page shop used to return 200 with an empty grid and a
+  // "Next" link to page 15 — an endless crawl trap and a pile of soft 404s.
+  // Only the plain listing is checked here: section/room filters are applied
+  // in the browser, so the server can't know their page count.
+  const page = typeof sp.page === 'string' ? parseInt(sp.page) || 1 : 1;
+  const plain = !q && !sp.section && !sp.room;
+  if (plain && page > Math.max(1, Math.ceil(products.length / SHOP_PAGE_SIZE))) notFound();
 
   return <ShopPageClient initialProducts={products.map(toListingProduct)} initialSections={sections} />;
 }
