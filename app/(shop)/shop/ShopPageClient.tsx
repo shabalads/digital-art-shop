@@ -17,9 +17,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ProductCard from '../../components/ProductCard';
 import SkeletonCard from '../../components/SkeletonCard';
-import { Product } from '../../data/products';
-
-const PAGE_SIZE = 40;
+import { Product, SHOP_PAGE_SIZE as PAGE_SIZE } from '../../data/products';
 
 function ShopContent({ initialProducts, initialSections }: { initialProducts: Product[]; initialSections: Array<{ id: string; name: string }> }) {
   const router = useRouter();
@@ -240,11 +238,15 @@ function selectSection(id: string) {
       {/* Pagination */}
       {!loading && totalPages > 1 && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 48, flexWrap: 'wrap' }}>
-{page === 1
+{page <= 1
             ? <span style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: 'not-allowed', background: 'white', border: '0.5px solid var(--border)', color: 'var(--text-muted)', opacity: 0.4 }}>← Previous</span>
             : <Link href={pageHref(page - 1)} rel="prev" style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'white', border: '0.5px solid var(--border)', color: 'var(--text-primary)', textDecoration: 'none' }}>← Previous</Link>}
           {Array.from({ length: totalPages }, (_, i) => i + 1)
-            .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
+            // Every page number is a real link while there are few pages, so
+            // any page (and its products) is one click from /shop — a
+            // sliding window left e.g. page 7 four clicks deep. Only very
+            // long lists fall back to first/last/neighbours.
+            .filter(n => totalPages <= 20 || n === 1 || n === totalPages || Math.abs(n - page) <= 2)
             .reduce((acc: (number | string)[], n, idx, arr) => {
               if (idx > 0 && n - (arr[idx - 1] as number) > 1) acc.push('...');
               acc.push(n);
@@ -255,7 +257,7 @@ function selectSection(id: string) {
               : <Link key={n} href={pageHref(n as number)} aria-current={page === n ? 'page' : undefined} style={{ width: 36, height: 36, borderRadius: 8, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', background: page === n ? 'var(--accent)' : 'white', border: `0.5px solid ${page === n ? 'var(--accent)' : 'var(--border)'}`, color: page === n ? 'white' : 'var(--text-primary)', fontWeight: page === n ? 600 : 400 }}>{n}</Link>
             )
           }
-          {page === totalPages
+          {page >= totalPages
             ? <span style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: 'not-allowed', background: 'white', border: '0.5px solid var(--border)', color: 'var(--text-muted)', opacity: 0.4 }}>Next →</span>
             : <Link href={pageHref(page + 1)} rel="next" style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'white', border: '0.5px solid var(--border)', color: 'var(--text-primary)', textDecoration: 'none' }}>Next →</Link>}
         </div>

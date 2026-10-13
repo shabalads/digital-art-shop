@@ -29,9 +29,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/terms', priority: 0.3, changeFrequency: 'yearly' },
   ];
 
-  // No lastModified here on purpose: it used to be `new Date()`, i.e. "now"
-  // on every regeneration, which isn't a real modification date. Google
-  // learns to ignore lastmod entirely from sites whose dates aren't accurate.
+  // No lastModified by default: it used to be `new Date()`, i.e. "now" on
+  // every regeneration, which isn't a real modification date. Google learns
+  // to ignore lastmod entirely from sites whose dates aren't accurate. The
+  // two catalog listing pages get a real date below.
   const staticEntries: MetadataRoute.Sitemap = staticPages.map(({ path, priority, changeFrequency }) => ({
     url: `${BASE_URL}${path}`,
     changeFrequency,
@@ -70,12 +71,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     from += PAGE_SIZE;
   }
 
+  // Real dates only. products has created_at but no updated_at, so created_at
+  // is the only true timestamp available; when it is missing the entry simply
+  // has no lastmod (never `new Date()`, which would claim "changed just now"
+  // on every regeneration).
   const productEntries: MetadataRoute.Sitemap = products.map((p) => ({
     url: `${BASE_URL}/product/${p.id}`,
-    lastModified: p.created_at ? new Date(p.created_at) : new Date(),
+    ...(p.created_at ? { lastModified: new Date(p.created_at) } : {}),
     changeFrequency: 'weekly',
     priority: 0.7,
   }));
+
+  // The homepage and /shop list the whole catalog, so the date the newest
+  // print was added is the last time they certainly changed.
+  const newest = products.reduce<string | null>((max, p) => (p.created_at && (!max || p.created_at > max) ? p.created_at : max), null);
+  if (newest) {
+    for (const entry of staticEntries) {
+      if (entry.url === BASE_URL || entry.url === `${BASE_URL}/shop`) entry.lastModified = new Date(newest);
+    }
+  }
 
   return [...staticEntries, ...productEntries];
 }

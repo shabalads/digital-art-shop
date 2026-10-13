@@ -19,7 +19,9 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://www.itemssyprints.com',
+    // No `url` here: every page without its own openGraph inherits this object,
+    // so a hard-coded homepage URL made /about, /faq, /shop, /bestsellers ...
+    // all claim to be the homepage (og:url contradicting their canonical).
     siteName: 'ItemssyPrints',
     title: 'ItemssyPrints — Digital Wall Art Prints',
     description: 'Browse 600+ digital wall art prints. Instant download or printed and shipped.',
