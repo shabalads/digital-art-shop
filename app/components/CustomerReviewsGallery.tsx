@@ -19,10 +19,9 @@ import ReviewCard, { CustomerReviewRow } from './ReviewCard';
 const DEFAULT_STRIP_LIMIT = 8;
 const DEFAULT_SECTION_LIMIT = 100;
 
-// Same real, site-wide stat used on the homepage stats bar and reviews
-// teaser (see HomeContent.tsx) — 4.8 average across 527 verified Etsy
-// reviews. Repeated here rather than computed from whatever subset of rows
-// happens to be loaded, so the number is consistent everywhere it appears.
+// Hardcoded figures for the /reviews page heading only — the homepage no
+// longer shows a rating or review count. Not computed from the customer_reviews
+// table, which does not agree with them.
 const OVERALL_RATING = 4.8;
 const OVERALL_REVIEW_COUNT = 527;
 
