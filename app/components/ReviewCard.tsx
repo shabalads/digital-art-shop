@@ -26,9 +26,10 @@ export type CustomerReviewRow = {
   product_title?: string | null;
 };
 
-// structuredData=false is used on product pages, where the page's own Product
-// JSON-LD already nests these reviews — a second standalone Review block per
-// card would add loose, price-less Product items for Google to flag.
+// structuredData=false is used on product pages, which carry no review markup
+// at all (their Product JSON-LD has no aggregateRating/review) — a standalone
+// Review block per card would add loose, price-less Product items for Google
+// to flag.
 export default function ReviewCard({ review, structuredData = true }: { review: CustomerReviewRow; structuredData?: boolean }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const firstName = displayFirstName(review.reviewer_name);
