@@ -14,14 +14,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '../../lib/supabase';
-import { Product, SHOP_PAGE_SIZE, toListingProduct } from '../../data/products';
+import { LISTING_COLUMNS, Product, SHOP_PAGE_SIZE, toListingProduct } from '../../data/products';
 import ShopPageClient from './ShopPageClient';
-
-// Only what the grid and its filters/sort actually use — the long Etsy
-// description and print-provider variant maps are never shown here, and
-// select('*') made every request pull ~1.4 MB from the database.
-const LISTING_COLUMNS =
-  'id,title,category,price_digital,price_physical,badge,tags,section_ids,room,bg_color,image_url,home_sort_order,sort_order,active,created_at';
 
 // /shop?page=N gets its own canonical (not /shop) so Google indexes each
 // page of the grid and follows its product links, instead of folding

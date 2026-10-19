@@ -37,6 +37,8 @@ type HomeContentProps = {
   initialShopCategories?: Array<{ id: string; name: string }>;
   initialMoodSections?: Array<{ id: string; name: string; product_count: number }>;
   initialMockupLinks?: Record<string, string>;
+  // The categories that have a page at /shop/<slug> (see app/lib/categories.ts).
+  initialCategoryLinks?: Array<{ id: string; slug: string; name: string; productCount: number }>;
 };
 
 export default function HomeContent({
@@ -46,7 +48,17 @@ export default function HomeContent({
   initialShopCategories,
   initialMoodSections,
   initialMockupLinks,
+  initialCategoryLinks,
 }: HomeContentProps = {}) {
+  // Where a section (by id) should send people: its category page when it has
+  // one, else the old filtered-shop URL. Props only, never re-fetched, so the
+  // links are the same in the server HTML and after hydration.
+  const categoryLinks = initialCategoryLinks || [];
+  const sectionHref = (sectionId: string) => {
+    const c = categoryLinks.find((link) => link.id === sectionId);
+    return c ? `/shop/${c.slug}` : `/shop?section=${sectionId}`;
+  };
+
   // Seeded from the server component (app/page.tsx) so Google's crawler gets
   // the real catalog on the first HTML response instead of the hardcoded
   // mock placeholders — the useEffects below still re-fetch client-side on
@@ -244,7 +256,7 @@ useEffect(() => {
               return moodSections.map((section, i) => {
                 const meta = MOOD_META[section.name] || { label: section.name, desc: `${section.product_count} prints`, ...FALLBACK_PALETTE[i % FALLBACK_PALETTE.length] };
                 return (
-                  <Link key={section.id} href={`/shop?section=${section.id}`} style={{ textDecoration: 'none' }}>
+                  <Link key={section.id} href={sectionHref(section.id)} style={{ textDecoration: 'none' }}>
                     <div style={{
                       background: meta.bg, borderRadius: 12, padding: '24px 18px',
                       cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s',
@@ -267,6 +279,24 @@ useEffect(() => {
               });
             })()}
           </div>
+
+          {/* Every category page, as plain links — the mood tiles above only cover the six biggest */}
+          {categoryLinks.length > 0 && (
+            <nav aria-label="All categories" style={{ marginTop: 40, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 16, fontWeight: 500 }}>All categories</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                {categoryLinks.map(c => (
+                  <Link key={c.slug} href={`/shop/${c.slug}`} style={{
+                    background: 'var(--bg-pill)', color: 'var(--text-secondary)',
+                    border: '0.5px solid var(--border)', borderRadius: 20,
+                    padding: '7px 18px', fontSize: 13
+                  }}>
+                    {c.name} <span style={{ color: 'var(--text-muted)' }}>{c.productCount}</span>
+                  </Link>
+                ))}
+              </div>
+            </nav>
+          )}
         </div>
 </div>
 
@@ -420,7 +450,7 @@ useEffect(() => {
 
           {!loading && sorted.length > HOME_PAGE_SIZE && (
             <div style={{ textAlign: 'center', marginTop: 40 }}>
-              <Link href={activeCategory ? `/shop?section=${activeCategory}` : '/shop'} style={{
+              <Link href={activeCategory ? sectionHref(activeCategory) : '/shop'} style={{
                 display: 'inline-block', background: 'var(--accent)', color: 'white',
                 borderRadius: 24, padding: '13px 32px', fontSize: 14, fontWeight: 500,
                 textDecoration: 'none'

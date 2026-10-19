@@ -3,6 +3,7 @@
 'use client';
 import Link from 'next/link';
 import { useIsMobile } from './useIsMobile';
+import { CATEGORY_LINKS } from '../data/categories';
 
 export default function Footer() {
   const isMobile = useIsMobile();
@@ -13,7 +14,7 @@ export default function Footer() {
       background: 'var(--bg)',
       marginTop: 80
     }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: isMobile ? 32 : 40 }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.4fr 1fr', gap: isMobile ? 32 : 40 }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.3px', marginBottom: 10 }}>
             Itemssy<span style={{ color: 'var(--accent-soft)', fontWeight: 400 }}>Prints</span>
@@ -24,11 +25,12 @@ export default function Footer() {
         </div>
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: 14 }}>Shop</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <Link href="/shop" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>All prints</Link>
-            <Link href="/shop?q=botanical" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Botanical</Link>
-            <Link href="/shop?q=abstract" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Abstract</Link>
-            <Link href="/shop?q=typography" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Typography</Link>
+          <Link href="/shop" style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>All prints</Link>
+          {/* One real link per category page (/shop/<slug>) — static, so they're in the HTML of every page */}
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', columnGap: 16, rowGap: 10 }}>
+            {CATEGORY_LINKS.map((c) => (
+              <Link key={c.slug} href={`/shop/${c.slug}`} style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{c.name}</Link>
+            ))}
           </div>
         </div>
         <div>
