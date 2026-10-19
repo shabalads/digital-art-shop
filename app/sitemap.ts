@@ -8,6 +8,7 @@
 
 import { MetadataRoute } from 'next';
 import { supabaseAdmin } from './lib/supabase';
+import { getPublicCategoriesOrEmpty } from './lib/categories';
 
 // Revalidate hourly rather than force-dynamic — the catalog doesn't change
 // minute-to-minute, and this avoids hitting Supabase on every crawler hit.
@@ -91,5 +92,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
-  return [...staticEntries, ...productEntries];
+  // Category pages (/shop/<slug>). Only categories that actually resolve are
+  // listed (copy written, section exists, at least one active product), and
+  // lastmod is the newest print in the category, not "now". Paginated URLs
+  // (?page=N) are left out like /shop?page=N is: they're reached through the
+  // pager links, and every product has its own entry above.
+  const categories = await getPublicCategoriesOrEmpty();
+  const categoryEntries: MetadataRoute.Sitemap = categories.map((c) => ({
+    url: `${BASE_URL}/shop/${c.slug}`,
+    ...(c.newestAt ? { lastModified: new Date(c.newestAt) } : {}),
+    changeFrequency: 'weekly',
+    priority: 0.8,
+  }));
+
+  return [...staticEntries, ...categoryEntries, ...productEntries];
 }

@@ -13,6 +13,7 @@
 import type { Metadata } from 'next';
 import HomeContent from './components/HomeContent';
 import { supabaseAdmin } from './lib/supabase';
+import { getPublicCategoriesOrEmpty } from './lib/categories';
 import { Product, toListingProduct } from './data/products';
 
 export const metadata: Metadata = {
@@ -107,12 +108,13 @@ async function fetchMockupLinks(): Promise<Record<string, string>> {
 }
 
 export default async function Home() {
-  const [products, bestsellers, recentlyAdded, { shopCategories, moodSections }, mockupLinks] = await Promise.all([
+  const [products, bestsellers, recentlyAdded, { shopCategories, moodSections }, mockupLinks, categories] = await Promise.all([
     fetchProducts(),
     fetchBestsellers(),
     fetchRecentlyAdded(),
     fetchSections(),
     fetchMockupLinks(),
+    getPublicCategoriesOrEmpty(),
   ]);
 
   // Tells Google what the site is and what brand name to show in results.
@@ -134,6 +136,7 @@ export default async function Home() {
         initialShopCategories={shopCategories}
         initialMoodSections={moodSections}
         initialMockupLinks={mockupLinks}
+        initialCategoryLinks={categories.map(({ id, slug, name, productCount }) => ({ id, slug, name, productCount }))}
       />
     </>
   );
