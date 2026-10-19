@@ -495,9 +495,6 @@ useEffect(() => {
           gap: 24, textAlign: 'center'
         }}>
           {[
-            { value: '7,200+', label: 'Happy customers' },
-            { value: '4.8 ★', label: 'Average rating' },
-            { value: '527', label: 'Verified reviews' },
             { value: '2.5 yrs', label: 'On Etsy' },
             { value: '600+', label: 'Prints' },
           ].map((stat, i) => (
@@ -521,7 +518,6 @@ useEffect(() => {
               <div style={{ fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8, fontWeight: 500 }}>What customers say</div>
               <h2 style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, letterSpacing: '-0.5px' }}>Reviews</h2>
             </div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>★★★★★ 4.8 · 527 reviews on Etsy</div>
           </div>
 
           <CustomerReviewsGallery limit={8} showViewAllLink />

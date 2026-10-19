@@ -74,7 +74,7 @@ export default function ProductReviews({ productId, initial }: { productId: stri
             {hasText && <SubLabel>Customer photos</SubLabel>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20, alignItems: 'start' }}>
               {photos.map((review) => (
-                <ReviewCard key={review.id} review={review} structuredData={false} />
+                <ReviewCard key={review.id} review={review} />
               ))}
             </div>
           </div>
@@ -85,7 +85,7 @@ export default function ProductReviews({ productId, initial }: { productId: stri
             {hasPhotos && <SubLabel>More reviews</SubLabel>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20, alignItems: 'start' }}>
               {textReviews.map((review) => (
-                <ReviewCard key={review.id} review={review} structuredData={false} />
+                <ReviewCard key={review.id} review={review} />
               ))}
             </div>
           </div>
