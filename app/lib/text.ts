@@ -31,3 +31,17 @@ export function displayFirstName(reviewerName: string | null | undefined): strin
   if (!cleaned || cleaned.toLowerCase() === 'anonymous') return 'Verified Buyer';
   return cleaned.split(/\s+/)[0];
 }
+
+// 512 -> "512", 1234 -> "1,234". Fixed locale so server and client render the
+// same text. Used to show the live print count (see app/lib/catalog.ts, which
+// is server-only — this lives here so client components can import it).
+export function formatCount(n: number): string {
+  return n.toLocaleString('en-US');
+}
+
+// "512 prints" when the live count is known, otherwise just "prints" — so copy
+// degrades to wording without a number if the count couldn't be loaded, never
+// to a made-up one.
+export function countPhrase(count: number | null | undefined, noun: string): string {
+  return count == null ? noun : `${formatCount(count)} ${noun}`;
+}

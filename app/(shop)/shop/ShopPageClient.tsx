@@ -18,8 +18,18 @@ import Link from 'next/link';
 import ProductCard from '../../components/ProductCard';
 import SkeletonCard from '../../components/SkeletonCard';
 import { Product, SHOP_PAGE_SIZE as PAGE_SIZE } from '../../data/products';
+import { countPhrase } from '../../lib/text';
 
-function ShopContent({ initialProducts, initialSections }: { initialProducts: Product[]; initialSections: Array<{ id: string; name: string }> }) {
+type ShopProps = {
+  initialProducts: Product[];
+  initialSections: Array<{ id: string; name: string }>;
+  // Sections that have a category page at /shop/<slug> (from the server page).
+  categoryLinks: Array<{ id: string; slug: string }>;
+  // Live number of active prints, null if it couldn't be loaded.
+  totalPrints: number | null;
+};
+
+function ShopContent({ initialProducts, initialSections, categoryLinks, totalPrints }: ShopProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const qParam = searchParams.get('q') || '';
@@ -113,6 +123,18 @@ function selectSection(id: string) {
     router.push(`/shop${params.toString() ? '?' + params.toString() : ''}`);
   }
 
+  // Where a filter pill goes. Sections with a category page link straight to
+  // it (a real, indexable URL); a section without one keeps the old
+  // /shop?section= filter. Both are plain links, so crawlers can follow them.
+  function sectionHref(id: string) {
+    const category = categoryLinks.find((c) => c.id === id);
+    if (category) return `/shop/${category.slug}`;
+    const params = new URLSearchParams();
+    if (id) params.set('section', id);
+    if (qParam) params.set('q', qParam);
+    return `/shop${params.toString() ? '?' + params.toString() : ''}`;
+  }
+
   // Real <a href> links (not onClick buttons) so Googlebot can follow
   // pagination and reach every product, not just the first page's 40.
   function pageHref(n: number) {
@@ -140,7 +162,7 @@ function selectSection(id: string) {
             }
             if (e.key === 'Escape') { setSearchInput(''); router.push('/shop'); }
           }}
-          placeholder="Search 600+ prints…"
+          placeholder={`Search ${countPhrase(totalPrints, 'prints')}…`}
           style={{
             width: '100%', padding: '14px 44px 14px 46px', fontSize: 15,
             border: '1px solid #D4C4B0', borderRadius: 28,
@@ -160,28 +182,30 @@ function selectSection(id: string) {
       {/* Section filter pills */}
       {sections.length > 0 && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 28, justifyContent: 'center' }}>
-          <button
-            onClick={() => selectSection('')}
+          <Link
+            href={sectionHref('')}
+            aria-current={!activeSection ? 'page' : undefined}
             style={{
-              padding: '8px 20px', borderRadius: 24, fontSize: 13, cursor: 'pointer',
+              padding: '8px 20px', borderRadius: 24, fontSize: 13, textDecoration: 'none',
               background: !activeSection ? 'var(--accent)' : 'white',
               color: !activeSection ? 'white' : 'var(--text-secondary)',
               border: `0.5px solid ${!activeSection ? 'var(--accent)' : 'var(--border)'}`,
               fontWeight: !activeSection ? 600 : 400, transition: 'all 0.15s'
             }}
-          >All</button>
+          >All</Link>
           {sections.map(s => (
-            <button
+            <Link
               key={s.id}
-              onClick={() => selectSection(s.id)}
+              href={sectionHref(s.id)}
+              aria-current={activeSection === s.id ? 'page' : undefined}
               style={{
-                padding: '8px 20px', borderRadius: 24, fontSize: 13, cursor: 'pointer',
+                padding: '8px 20px', borderRadius: 24, fontSize: 13, textDecoration: 'none',
                 background: activeSection === s.id ? 'var(--accent)' : 'white',
                 color: activeSection === s.id ? 'white' : 'var(--text-secondary)',
                 border: `0.5px solid ${activeSection === s.id ? 'var(--accent)' : 'var(--border)'}`,
                 fontWeight: activeSection === s.id ? 600 : 400, transition: 'all 0.15s'
               }}
-            >{s.name}</button>
+            >{s.name}</Link>
           ))}
         </div>
       )}
@@ -271,10 +295,10 @@ function selectSection(id: string) {
   );
 }
 
-export default function ShopPageClient({ initialProducts, initialSections }: { initialProducts: Product[]; initialSections: Array<{ id: string; name: string }> }) {
+export default function ShopPageClient(props: ShopProps) {
   return (
     <Suspense>
-      <ShopContent initialProducts={initialProducts} initialSections={initialSections} />
+      <ShopContent {...props} />
     </Suspense>
   );
 }

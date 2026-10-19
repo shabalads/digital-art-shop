@@ -11,9 +11,12 @@
 // in the first HTML response with no JS required.
 
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '../../lib/supabase';
+import { getPublicCategories } from '../../lib/categories';
+import { getActiveProductCountOrNull } from '../../lib/catalog';
+import { countPhrase } from '../../lib/text';
 import { LISTING_COLUMNS, Product, SHOP_PAGE_SIZE, toListingProduct } from '../../data/products';
 import ShopPageClient from './ShopPageClient';
 
@@ -26,12 +29,13 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const page = typeof sp.page === 'string' ? parseInt(sp.page) || 1 : 1;
   const plain = !sp.q && !sp.section && !sp.room;
   const paged = plain && page > 1;
+  const total = await getActiveProductCountOrNull();
   return {
     // Internal search results are thin, endless variations — keep them out of
     // the index but let Google follow their product links.
     ...(sp.q ? { robots: { index: false, follow: true } } : {}),
     title: paged ? `Shop All Prints – Page ${page}` : 'Shop All Prints',
-    description: 'Browse 600+ digital wall art prints. Instant download or printed and shipped. Abstract, botanical, typography, vintage and more.',
+    description: `Browse ${countPhrase(total, 'digital wall art prints')}. Instant download or printed and shipped. Abstract, botanical, typography, vintage and more.`,
     alternates: { canonical: `https://www.itemssyprints.com/shop${paged ? `?page=${page}` : ''}` },
   };
 }
@@ -85,7 +89,33 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const q = typeof sp.q === 'string' ? sp.q : '';
 
-  const [products, sections] = await Promise.all([q ? fetchInitialProducts(q) : getCachedCatalog(), fetchSections()]);
+  // Cached; if it fails, the shop still renders (pills just fall back to the
+  // ?section= links, and nothing is redirected). Kept outside any try/catch
+  // around permanentRedirect below, which works by throwing.
+  const categories = await getPublicCategories().catch(() => []);
+
+  // /shop?section=<uuid> was the only URL a category had, and it canonicalised
+  // to /shop. Now that the category has its own page, send the old URL there
+  // permanently (Next.js sends 308 for permanent redirects from pages; search
+  // engines treat it the same as a 301). Only the plain section filter is
+  // redirected: with a search (q) or room filter on top, it is a different,
+  // combined view that has no category-page equivalent. ?page=N is carried
+  // over, since the category page paginates the same way. A section without a
+  // category page (or an unknown id) is left alone and renders as before.
+  const sectionParam = typeof sp.section === 'string' ? sp.section : '';
+  if (sectionParam && !q && !sp.room) {
+    const target = categories.find((c) => c.id === sectionParam);
+    if (target) {
+      const pageParam = typeof sp.page === 'string' && /^[1-9]\d{0,5}$/.test(sp.page) ? parseInt(sp.page, 10) : 1;
+      permanentRedirect(`/shop/${target.slug}${pageParam > 1 ? `?page=${pageParam}` : ''}`);
+    }
+  }
+
+  const [products, sections, totalPrints] = await Promise.all([
+    q ? fetchInitialProducts(q) : getCachedCatalog(),
+    fetchSections(),
+    getActiveProductCountOrNull(),
+  ]);
 
   // ?page=14 on a 13-page shop used to return 200 with an empty grid and a
   // "Next" link to page 15 — an endless crawl trap and a pile of soft 404s.
@@ -95,5 +125,12 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
   const plain = !q && !sp.section && !sp.room;
   if (plain && page > Math.max(1, Math.ceil(products.length / SHOP_PAGE_SIZE))) notFound();
 
-  return <ShopPageClient initialProducts={products.map(toListingProduct)} initialSections={sections} />;
+  return (
+    <ShopPageClient
+      initialProducts={products.map(toListingProduct)}
+      initialSections={sections}
+      categoryLinks={categories.map(({ id, slug }) => ({ id, slug }))}
+      totalPrints={totalPrints}
+    />
+  );
 }

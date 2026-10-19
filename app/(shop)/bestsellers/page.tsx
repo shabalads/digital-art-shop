@@ -12,6 +12,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import ProductCard from '../../components/ProductCard';
 import { supabaseAdmin } from '../../lib/supabase';
+import { getActiveProductCountOrNull } from '../../lib/catalog';
+import { countPhrase } from '../../lib/text';
 import { Product, toListingProduct } from '../../data/products';
 
 export const revalidate = 300;
@@ -46,7 +48,10 @@ async function fetchTagged(tag: string): Promise<Product[]> {
 }
 
 export default async function BestsellersPage() {
-  const lists = await Promise.all(TAG_SECTIONS.map((s) => fetchTagged(s.tag)));
+  const [lists, totalPrints] = await Promise.all([
+    Promise.all(TAG_SECTIONS.map((s) => fetchTagged(s.tag))),
+    getActiveProductCountOrNull(),
+  ]);
 
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: '48px clamp(20px, 4vw, 40px) 80px' }}>
@@ -95,7 +100,7 @@ export default async function BestsellersPage() {
             Want to see everything?
           </h2>
           <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-            Browse our full collection of 600+ prints across all categories.
+            Browse our full collection of {countPhrase(totalPrints, 'prints')} across all categories.
           </p>
         </div>
         <Link href="/shop" style={{
