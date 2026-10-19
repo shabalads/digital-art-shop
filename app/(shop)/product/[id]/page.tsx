@@ -20,7 +20,6 @@ import { cleanDescription, seoTitle, metaDescription } from './product-utils';
 import { PHYSICAL_SIZES } from '../../../data/physical-sizes';
 import ProductPageClient from './ProductPageClient';
 import type { CustomerReviewRow } from '../../../components/ReviewCard';
-import { reviewJsonLd } from '../../../lib/reviews';
 
 const BASE_URL = 'https://www.itemssyprints.com';
 
@@ -259,10 +258,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const [related, reviews] = await Promise.all([fetchRelated(product), fetchReviews(product)]);
 
   // Product structured data — lets Google show price/availability in
-  // results. aggregateRating/review come only from this product's real
-  // linked reviews (see app/lib/reviews.ts) and are omitted entirely when it
-  // has none. The "4.8 · 1,200+ reviews" banner on the page is a site-wide
-  // figure, so it is deliberately NOT used here.
+  // results. Deliberately carries no aggregateRating or review: the review
+  // cards on the page stay as visible content, with no review markup.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -280,7 +277,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       availability: product.active && !product.deleted_at ? 'https://schema.org/InStock' : 'https://schema.org/Discontinued',
       url: `${BASE_URL}/product/${product.id}`,
     },
-    ...reviewJsonLd(reviews),
   };
 
   return (
