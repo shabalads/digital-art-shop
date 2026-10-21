@@ -4,7 +4,7 @@
 // bestsellers, recently-added, sections and the main catalog in useEffects,
 // with only 10 hardcoded mock products as its initial state — meaning the
 // first HTML response (what a non-JS crawler sees) showed placeholder mock
-// products, not the real 600+ catalog. This page now fetches all of that
+// products, not the real catalog. This page now fetches all of that
 // directly from Supabase and passes it down as props, so the real content
 // is present on first render. HomeContent's own useEffects still run
 // afterward and re-fetch client-side, unchanged — this only replaces the
@@ -14,13 +14,17 @@ import type { Metadata } from 'next';
 import HomeContent from './components/HomeContent';
 import { supabaseAdmin } from './lib/supabase';
 import { getPublicCategoriesOrEmpty } from './lib/categories';
+import { getActiveProductCountOrNull } from './lib/catalog';
+import { countPhrase } from './lib/text';
 import { Product, toListingProduct } from './data/products';
 
-export const metadata: Metadata = {
-  title: 'Digital Wall Art Prints — Instant Download',
-  description: 'Shop 600+ digital wall art prints. Instant download or get it printed and shipped. Abstract, botanical, typography, vintage and more.',
-  alternates: { canonical: '/' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: 'Digital Wall Art Prints — Instant Download',
+    description: `Shop ${countPhrase(await getActiveProductCountOrNull(), 'digital wall art prints')}. Instant download or get it printed and shipped. Abstract, botanical, typography, vintage and more.`,
+    alternates: { canonical: '/' },
+  };
+}
 
 export const revalidate = 3600;
 
@@ -108,13 +112,14 @@ async function fetchMockupLinks(): Promise<Record<string, string>> {
 }
 
 export default async function Home() {
-  const [products, bestsellers, recentlyAdded, { shopCategories, moodSections }, mockupLinks, categories] = await Promise.all([
+  const [products, bestsellers, recentlyAdded, { shopCategories, moodSections }, mockupLinks, categories, totalPrints] = await Promise.all([
     fetchProducts(),
     fetchBestsellers(),
     fetchRecentlyAdded(),
     fetchSections(),
     fetchMockupLinks(),
     getPublicCategoriesOrEmpty(),
+    getActiveProductCountOrNull(),
   ]);
 
   // Tells Google what the site is and what brand name to show in results.
@@ -137,6 +142,7 @@ export default async function Home() {
         initialMoodSections={moodSections}
         initialMockupLinks={mockupLinks}
         initialCategoryLinks={categories.map(({ id, slug, name, productCount }) => ({ id, slug, name, productCount }))}
+        totalPrints={totalPrints}
       />
     </>
   );
