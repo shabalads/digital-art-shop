@@ -247,6 +247,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       images: product.image_url ? [{ url: product.image_url }] : [],
       url,
     },
+    // Same values as the Open Graph tags above. Without this the page inherits
+    // the root layout's twitter object, so every product shared the site-wide
+    // title, description and og-image.jpg on X/Twitter.
+    twitter: {
+      card: product.image_url ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      ...(product.image_url ? { images: [product.image_url] } : {}),
+    },
   };
 }
 
