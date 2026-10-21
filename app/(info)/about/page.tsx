@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { getActiveProductCountOrNull } from '../../lib/catalog';
+import { formatCount } from '../../lib/text';
 
 export const metadata: Metadata = {
   title: 'About',
@@ -9,7 +11,11 @@ export const metadata: Metadata = {
   alternates: { canonical: '/about' },
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  // Live number of active prints, not a hardcoded claim; null (DB unreachable) just drops the number.
+  const total = await getActiveProductCountOrNull();
+  const designs = total != null ? `${formatCount(total)} designs` : null;
+
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '64px clamp(20px, 4vw, 40px) 100px' }}>
       <div style={{ marginBottom: 56 }}>
@@ -27,7 +33,7 @@ export default function AboutPage() {
           { title: 'Designed with care', desc: 'Every piece is created in-house. No stock art, no shortcuts.' },
           { title: 'Instant delivery', desc: 'Digital files arrive in seconds. No waiting, no shipping delays.' },
           { title: 'Print quality', desc: 'Premium matte paper, printed and shipped by our trusted print partners.' },
-          { title: '600+ designs', desc: 'Abstract, botanical, typography, vintage and more — always growing.' },
+          { title: designs ?? 'Designs for every wall', desc: 'Abstract, botanical, typography, vintage and more — always growing.' },
         ].map(v => (
           <div key={v.title} style={{ background: 'white', border: '0.5px solid var(--border)', borderRadius: 12, padding: '20px' }}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{v.title}</div>
@@ -39,7 +45,7 @@ export default function AboutPage() {
       <div style={{ marginBottom: 56 }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', marginBottom: 28 }}>How it works</h2>
         {[
-          { step: '01', title: 'Browse & choose', desc: 'Find a print you love from our collection of 600+ designs.' },
+          { step: '01', title: 'Browse & choose', desc: `Find a print you love from our collection${designs ? ` of ${designs}` : ''}.` },
           { step: '02', title: 'Pick your format', desc: 'Digital download for instant access, or printed & shipped to your door.' },
           { step: '03', title: 'Checkout securely', desc: 'Pay via Stripe — fast, secure, no account required.' },
           { step: '04', title: 'Enjoy your art', desc: 'Download instantly or receive your print within 3–5 business days.' },
@@ -56,7 +62,7 @@ export default function AboutPage() {
 
       <div style={{ background: '#F2EDE6', borderRadius: 16, padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 16 }}>
         <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.5px' }}>Ready to find your print?</h2>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', maxWidth: 400, lineHeight: 1.7 }}>Browse 600+ designs and download instantly or get it shipped to your door.</p>
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', maxWidth: 400, lineHeight: 1.7 }}>Browse {designs ?? 'our designs'} and download instantly or get it shipped to your door.</p>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           <Link href="/shop" style={{ background: 'var(--accent)', color: 'white', borderRadius: 24, padding: '12px 28px', fontSize: 14, fontWeight: 500 }}>Browse all prints →</Link>
           <Link href="/contact" style={{ background: 'white', color: 'var(--text-primary)', border: '0.5px solid var(--border)', borderRadius: 24, padding: '12px 24px', fontSize: 14 }}>Get in touch</Link>
