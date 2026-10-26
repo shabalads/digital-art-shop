@@ -67,7 +67,7 @@ function ProductBadge({ tag, style, description }: { tag: string; style: { color
   );
 }
 
-export default function ProductPageClient({ product, related, reviews }: { product: Product; related: Product[]; reviews: { photos: CustomerReviewRow[]; text: CustomerReviewRow[] } }) {
+export default function ProductPageClient({ product, breadcrumb, related, reviews }: { product: Product; breadcrumb: { name: string; href: string }; related: Product[]; reviews: { photos: CustomerReviewRow[]; text: CustomerReviewRow[] } }) {
   const [type, setType] = useState<'digital' | 'physical'>('digital');
   const [activeImage, setActiveImage] = useState<string | undefined>(product.image_url);
   const [selectedSize, setSelectedSize] = useState(PHYSICAL_SIZES[1].label); // default 8×10"
@@ -92,7 +92,7 @@ export default function ProductPageClient({ product, related, reviews }: { produ
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productId: product.id }),
-    });
+    }).catch(() => {}); // fire-and-forget: a failed or blocked call must not affect the page
     // Only on mount / when the product itself changes (e.g. client-side nav
     // between two product pages) — matches the previous [product] behavior.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,12 +167,12 @@ export default function ProductPageClient({ product, related, reviews }: { produ
 
   return (
     <div>
-      {/* Breadcrumb */}
-      <div style={{ padding: '16px 40px', borderBottom: '0.5px solid var(--border)', fontSize: 13, color: 'var(--text-muted)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* Breadcrumb: Home > category page (or /shop) > product; matches the BreadcrumbList JSON-LD in page.tsx */}
+      <nav aria-label="Breadcrumb" style={{ padding: '16px 40px', borderBottom: '0.5px solid var(--border)', fontSize: 13, color: 'var(--text-muted)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <Link href="/" style={{ color: 'var(--text-muted)' }}>Home</Link><span>›</span>
-        <Link href="/shop" style={{ color: 'var(--text-muted)' }}>Shop</Link><span>›</span>
-        <span style={{ color: 'var(--text-primary)' }}>{displayTitle}</span>
-      </div>
+        <Link href={breadcrumb.href} style={{ color: 'var(--text-muted)' }}>{breadcrumb.name}</Link><span>›</span>
+        <span aria-current="page" style={{ color: 'var(--text-primary)' }}>{displayTitle}</span>
+      </nav>
 
       {/* Main */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(24px, 4vw, 48px) clamp(20px, 4vw, 40px)', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 32 : 64, alignItems: 'start' }}>
