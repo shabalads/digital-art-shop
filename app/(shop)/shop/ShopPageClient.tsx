@@ -3,12 +3,16 @@
 // All interactive UI for the shop listing (search, section/room filters,
 // sort, pagination, scroll restoration). Split out of what used to be a
 // fully-client page.tsx (SEO fix, 2026-09) — this component now receives
-// the initial product/section list as props from the new server page.tsx
-// so the crawler-visible /shop URL renders real product cards in the first
-// HTML response instead of an empty grid. It still re-fetches from
-// /api/products client-side exactly as before (unchanged behavior) — the
-// props just remove the initial empty-grid flash and give crawlers content
-// with no JS required.
+// the product/section list as props from the server page.tsx, so the
+// crawler-visible /shop URL renders real product cards in the first HTML
+// response instead of an empty grid.
+//
+// The props are the ONLY source of products and sections: this component
+// never fetches from /api. It used to re-fetch both on mount, and set the list
+// to [] when that failed. robots.txt disallows /api, so for Google's renderer
+// the call always failed and the rendered page showed "No prints found" with
+// no products. A new search or page is a navigation (router.push), which makes
+// the server page render again with the new searchParams and pass new props.
 
 'use client';
 
@@ -16,7 +20,6 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ProductCard from '../../components/ProductCard';
-import SkeletonCard from '../../components/SkeletonCard';
 import { Product, SHOP_PAGE_SIZE as PAGE_SIZE } from '../../data/products';
 
 function ShopContent({ initialProducts, initialSections }: { initialProducts: Product[]; initialSections: Array<{ id: string; name: string }> }) {
@@ -27,45 +30,16 @@ function ShopContent({ initialProducts, initialSections }: { initialProducts: Pr
   const roomParam = searchParams.get('room') || '';
   const pageParam = parseInt(searchParams.get('page') || '1') || 1;
 
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [sections, setSections] = useState<Array<{ id: string; name: string }>>(initialSections);
-  const [loading, setLoading] = useState(false);
+  const products = initialProducts;
+  const sections = initialSections;
   const [activeSection, setActiveSection] = useState(sectionParam);
   const [activeRoom, setActiveRoom] = useState(roomParam);
   const [sort, setSort] = useState('featured');
   const [searchInput, setSearchInput] = useState(qParam);
   const [page, setPage] = useState(pageParam);
 
-  // Load sections
+  // Restore scroll position after returning from a product page
   useEffect(() => {
-    fetch('/api/sections')
-      .then(r => r.json())
-      .then(data => setSections(data.sections || []));
-  }, []);
-
-// Load products
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams();
-        if (qParam) params.set('q', qParam);
-        params.set('limit', '1000');
-        const res = await fetch(`/api/products?${params.toString()}`);
-        const data = await res.json();
-        setProducts(data.products || []);
-      } catch {
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [qParam]);
-
-  // Restore scroll position after returning from a product page (once content is loaded and rendered)
-  useEffect(() => {
-    if (loading) return;
     const key = `shop-scroll:${window.location.pathname}${window.location.search}`;
     const saved = sessionStorage.getItem(key);
     if (saved) {
@@ -74,7 +48,7 @@ function ShopContent({ initialProducts, initialSections }: { initialProducts: Pr
       });
       sessionStorage.removeItem(key);
     }
-  }, [loading, page, activeSection, products.length]);
+  }, [page, activeSection, products.length]);
 
   function saveScrollBeforeLeaving() {
     const key = `shop-scroll:${window.location.pathname}${window.location.search}`;
@@ -199,7 +173,7 @@ function selectSection(id: string) {
               : 'All Prints'}
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            {loading ? 'Loading…' : `${sorted.length} print${sorted.length !== 1 ? 's' : ''}`}
+            {`${sorted.length} print${sorted.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         <select value={sort} onChange={e => setSort(e.target.value)} style={{
@@ -215,15 +189,12 @@ function selectSection(id: string) {
       </div>
 
 {/* Grid */}
-      <div onClickCapture={saveScrollBeforeLeaving} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20, opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s' }}>
-        {loading && products.length === 0
-          ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
-          : paginated.map(p => <ProductCard key={p.id} product={p} />)
-        }
+      <div onClickCapture={saveScrollBeforeLeaving} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
+        {paginated.map(p => <ProductCard key={p.id} product={p} />)}
       </div>
 
       {/* Empty state */}
-      {!loading && sorted.length === 0 && (
+      {sorted.length === 0 && (
         <div style={{ textAlign: 'center', padding: '80px 0' }}>
           <div style={{ fontSize: 32, marginBottom: 16 }}>◻</div>
           <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>No prints found</p>
@@ -236,7 +207,7 @@ function selectSection(id: string) {
       )}
 
       {/* Pagination */}
-      {!loading && totalPages > 1 && (
+      {totalPages > 1 && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 48, flexWrap: 'wrap' }}>
 {page <= 1
             ? <span style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: 'not-allowed', background: 'white', border: '0.5px solid var(--border)', color: 'var(--text-muted)', opacity: 0.4 }}>← Previous</span>
@@ -262,7 +233,7 @@ function selectSection(id: string) {
             : <Link href={pageHref(page + 1)} rel="next" style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'white', border: '0.5px solid var(--border)', color: 'var(--text-primary)', textDecoration: 'none' }}>Next →</Link>}
         </div>
       )}
-      {!loading && totalPages > 1 && (
+      {totalPages > 1 && (
         <div style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
           Page {page} of {totalPages} · {sorted.length} prints
         </div>
