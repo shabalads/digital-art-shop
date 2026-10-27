@@ -26,11 +26,10 @@ export type CustomerReviewRow = {
   product_title?: string | null;
 };
 
-// structuredData=false is used on product pages, which carry no review markup
-// at all (their Product JSON-LD has no aggregateRating/review) — a standalone
-// Review block per card would add loose, price-less Product items for Google
-// to flag.
-export default function ReviewCard({ review, structuredData = true }: { review: CustomerReviewRow; structuredData?: boolean }) {
+// Review cards are plain visible content: no review structured data is
+// emitted here or anywhere else on the site (the Product JSON-LD on product
+// pages has no aggregateRating/review either).
+export default function ReviewCard({ review }: { review: CustomerReviewRow }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const firstName = displayFirstName(review.reviewer_name);
   const hasImage = Boolean(review.image_path);
@@ -47,31 +46,12 @@ export default function ReviewCard({ review, structuredData = true }: { review: 
   // the live product grid, so a review's title reads the same short, clean
   // way everywhere.
   const displayProductName = rawProductName ? cleanProductTitle(rawProductName) : null;
-  // Only emit Review structured data when we have a real rating + quote +
-  // product name to attach it to — never fabricate any of those.
-  const hasQuote = structuredData && Boolean(review.quote && review.rating && rawProductName);
 
   return (
     <div style={{
       background: 'var(--bg-card)', border: '0.5px solid var(--border-card)',
       borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column'
     }}>
-      {hasQuote && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'Review',
-              reviewRating: { '@type': 'Rating', ratingValue: String(review.rating) },
-              author: { '@type': 'Person', name: firstName },
-              reviewBody: review.quote,
-              itemReviewed: { '@type': 'Product', name: displayProductName ?? rawProductName },
-            }),
-          }}
-        />
-      )}
-
       {/* Text-only reviews (no photo submitted) skip this block entirely —
           same card style otherwise, just no image area. */}
       {hasImage && (
