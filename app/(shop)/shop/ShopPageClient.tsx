@@ -18,8 +18,16 @@ import Link from 'next/link';
 import ProductCard from '../../components/ProductCard';
 import SkeletonCard from '../../components/SkeletonCard';
 import { Product, SHOP_PAGE_SIZE as PAGE_SIZE } from '../../data/products';
+import { countPhrase } from '../../lib/text';
 
-function ShopContent({ initialProducts, initialSections }: { initialProducts: Product[]; initialSections: Array<{ id: string; name: string }> }) {
+type ShopProps = {
+  initialProducts: Product[];
+  initialSections: Array<{ id: string; name: string }>;
+  // Live number of active prints, null if it couldn't be loaded.
+  totalPrints: number | null;
+};
+
+function ShopContent({ initialProducts, initialSections, totalPrints }: ShopProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const qParam = searchParams.get('q') || '';
@@ -140,7 +148,7 @@ function selectSection(id: string) {
             }
             if (e.key === 'Escape') { setSearchInput(''); router.push('/shop'); }
           }}
-          placeholder="Search 600+ prints…"
+          placeholder={`Search ${countPhrase(totalPrints, 'prints')}…`}
           style={{
             width: '100%', padding: '14px 44px 14px 46px', fontSize: 15,
             border: '1px solid #D4C4B0', borderRadius: 28,
@@ -271,10 +279,10 @@ function selectSection(id: string) {
   );
 }
 
-export default function ShopPageClient({ initialProducts, initialSections }: { initialProducts: Product[]; initialSections: Array<{ id: string; name: string }> }) {
+export default function ShopPageClient(props: ShopProps) {
   return (
     <Suspense>
-      <ShopContent initialProducts={initialProducts} initialSections={initialSections} />
+      <ShopContent {...props} />
     </Suspense>
   );
 }

@@ -8,6 +8,7 @@ import ProductCard from './ProductCard';
 import SkeletonCard from './SkeletonCard';
 import CustomerReviewsGallery from './CustomerReviewsGallery';
 import Link from 'next/link';
+import { countPhrase, formatCount } from '../lib/text';
 
 const moods = [
   { label: 'Calm & Minimal', desc: 'Clean lines, quiet spaces', bg: '#E8E4DC', color: '#6B5F52', cat: 'minimal' },
@@ -39,6 +40,9 @@ type HomeContentProps = {
   initialMockupLinks?: Record<string, string>;
   // The categories that have a page at /shop/<slug> (see app/lib/categories.ts).
   initialCategoryLinks?: Array<{ id: string; slug: string; name: string; productCount: number }>;
+  // Live number of active prints (null if it couldn't be loaded). Replaces the
+  // hardcoded "600+" the copy below used to claim.
+  totalPrints?: number | null;
 };
 
 export default function HomeContent({
@@ -49,6 +53,7 @@ export default function HomeContent({
   initialMoodSections,
   initialMockupLinks,
   initialCategoryLinks,
+  totalPrints = null,
 }: HomeContentProps = {}) {
   // Where a section (by id) should send people: its category page when it has
   // one, else the old filtered-shop URL. Props only, never re-fetched, so the
@@ -177,7 +182,7 @@ useEffect(() => {
           Prints for every<br />wall, every mood.
         </h1>
         <p style={{ fontSize: 17, color: 'var(--text-secondary)', marginBottom: 40, lineHeight: 1.6, maxWidth: 480, margin: '0 auto 40px' }}>
-         600+ prints — download instantly or get it printed and shipped to your door.
+         {totalPrints != null ? `${countPhrase(totalPrints, 'prints')} — download` : 'Download'} instantly or get it printed and shipped to your door.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => shopRef.current?.scrollIntoView({ behavior: 'smooth' })} style={{
@@ -481,7 +486,7 @@ useEffect(() => {
             background: 'var(--accent)', color: 'white', flexShrink: 0,
             borderRadius: 12, padding: '16px 32px', fontSize: 15, fontWeight: 500, whiteSpace: 'nowrap'
           }}>
-            Browse 600+ prints →
+            {totalPrints != null ? `Browse ${countPhrase(totalPrints, 'prints')} →` : 'Browse all prints →'}
           </Link>
         </div>
       </div>
@@ -496,7 +501,7 @@ useEffect(() => {
         }}>
           {[
             { value: '2.5 yrs', label: 'On Etsy' },
-            { value: '600+', label: 'Prints' },
+            ...(totalPrints != null ? [{ value: formatCount(totalPrints), label: 'Prints' }] : []),
           ].map((stat, i) => (
             <div key={stat.label} style={{
               borderLeft: i > 0 ? '0.5px solid var(--border)' : 'none',
