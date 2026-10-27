@@ -111,3 +111,16 @@ async function loadCategoryPage(sectionId: string, page: number): Promise<{ prod
 }
 
 export const getCategoryPage = unstable_cache(loadCategoryPage, ['category-page'], { revalidate: 300 });
+
+// The category a product's breadcrumb points at: the first of its sections
+// that has a real page at /shop/<slug>, in CATEGORY_LINKS order (the same order
+// as the footer), so it is deterministic. null when the product is in no
+// section, or only in sections without a page. Reads the hourly cache, so
+// product pages keep their 1h revalidation, and an unreadable list simply
+// degrades to the plain "Shop" breadcrumb.
+export async function getProductCategory(sectionIds: string[] | null | undefined): Promise<{ slug: string; name: string } | null> {
+  if (!sectionIds?.length) return null;
+  const categories = await getPublicCategoriesOrEmpty();
+  const match = categories.find((c) => sectionIds.includes(c.id));
+  return match ? { slug: match.slug, name: match.name } : null;
+}

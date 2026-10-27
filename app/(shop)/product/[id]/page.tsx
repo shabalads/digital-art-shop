@@ -14,14 +14,16 @@
 import { cache } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { mockProducts, Product, toListingProduct } from '../../../data/products';
+import { Product, toListingProduct } from '../../../data/products';
 import { supabaseAdmin } from '../../../lib/supabase';
-import { cleanDescription, seoTitle, metaDescription } from './product-utils';
+import { getProductCategory } from '../../../lib/categories';
+import { cleanDescription, cleanTitle, seoTitle, metaDescription } from './product-utils';
 import { PHYSICAL_SIZES } from '../../../data/physical-sizes';
 import ProductPageClient from './ProductPageClient';
 import type { CustomerReviewRow } from '../../../components/ReviewCard';
 
 const BASE_URL = 'https://www.itemssyprints.com';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Without this the pre-rendered pages never refresh until the next deploy:
 // a price/title/description edited in the dashboard (or a trashed product)
@@ -33,6 +35,13 @@ export const revalidate = 3600;
 // plain fetch() calls automatically, not direct Supabase client calls, so
 // without this we'd hit Supabase twice per request.
 const fetchProduct = cache(async (id: string): Promise<Product | null> => {
+  // Real product ids are UUIDs. Anything else (/product/1, /product/b1,
+  // /product/abc) is not a product: 404 without a database round trip. There
+  // are deliberately no placeholder products any more: the old fallback served
+  // ten mock products at /product/1-10 (noindex, but crawlable and linked from
+  // the homepage's failed-fetch fallback).
+  if (!UUID_RE.test(id)) return null;
+
   // Deliberately NOT filtered by active/deleted_at here — this matches the
   // existing /api/products?id= behavior (which also fetches by id alone),
   // so a directly-visited link to an inactive/trashed product still resolves
@@ -44,12 +53,7 @@ const fetchProduct = cache(async (id: string): Promise<Product | null> => {
     .eq('id', id)
     .single();
 
-  if (!error && data) return data as Product;
-
-  // Fall back to mockProducts — preserves the old page's fallback behavior
-  // for the handful of mock ids ('1', 'b1', etc.) that never existed in
-  // Supabase to begin with.
-  return mockProducts.find((p) => p.id === id) ?? null;
+  return !error && data ? (data as Product) : null;
 });
 
 // "More like this": 12 server-rendered product links per page, so products
@@ -147,8 +151,7 @@ async function fetchRelated(product: Product): Promise<Product[]> {
     for (const p of (fuzzyRelated || []) as Product[]) add(p, RELATED_SIMILAR_MAX);
   }
 
-  // 3 + 4. fixed-order neighbours (no placeholder/mock products: they aren't
-  // real listings, their pages are noindex).
+  // 3 + 4. fixed-order neighbours.
   const entries = await fetchCatalogOrder();
   const taken = new Set(order);
   const ringIds: string[] = [];
@@ -176,9 +179,7 @@ async function fetchRelated(product: Product): Promise<Product[]> {
 // The real customer reviews linked to this product (customer_reviews.product_id),
 // same ordering as /api/reviews. Fetched here on the server — and rendered
 // into the HTML — because robots.txt blocks /api, so Googlebot never sees
-// reviews that are loaded in the browser. Mock ids aren't UUIDs and would
-// make Postgres reject the query, so they skip it.
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// reviews that are loaded in the browser.
 async function fetchReviews(product: Product): Promise<CustomerReviewRow[]> {
   if (!UUID_RE.test(product.id)) return [];
   const { data, error } = await supabaseAdmin
@@ -232,9 +233,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const description = metaDescription(product.title, product.description || '');
   const url = `${BASE_URL}/product/${product.id}`;
 
-  // Trashed/inactive products and the built-in placeholder products still
-  // resolve (so old links keep working) but must not be indexed.
-  const indexable = product.active && !product.deleted_at && !mockProducts.some((m) => m.id === product.id);
+  // Trashed/inactive products still resolve (so old links keep working) but
+  // must not be indexed.
+  const indexable = product.active && !product.deleted_at;
 
   return {
     title,
@@ -264,7 +265,20 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const product = await fetchProduct(id);
   if (!product) notFound();
 
-  const [related, reviews] = await Promise.all([fetchRelated(product), fetchReviews(product)]);
+  const [related, reviews, category] = await Promise.all([fetchRelated(product), fetchReviews(product), getProductCategory(product.section_ids)]);
+
+  // Breadcrumb: Home > its category page (/shop/<slug>) > the product. A
+  // product in no section (or only in sections without a page) points at /shop.
+  const crumb = category ? { name: category.name, href: `/shop/${category.slug}` } : { name: 'Shop', href: '/shop' };
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `${BASE_URL}/` },
+      { '@type': 'ListItem', position: 2, name: crumb.name, item: `${BASE_URL}${crumb.href}` },
+      { '@type': 'ListItem', position: 3, name: cleanTitle(product.title), item: `${BASE_URL}/product/${product.id}` },
+    ],
+  };
 
   // Product structured data — lets Google show price/availability in
   // results. Deliberately carries no aggregateRating or review: the review
@@ -294,8 +308,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }}
+      />
       <ProductPageClient
         product={product}
+        breadcrumb={crumb}
         related={related.map(toListingProduct)}
         reviews={{ photos: reviews.filter((r) => r.image_path), text: reviews.filter((r) => !r.image_path) }}
       />

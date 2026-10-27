@@ -2,10 +2,9 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { mockProducts as allProducts, bestsellerProducts, Product } from '../data/products';
+import { useState, useRef } from 'react';
+import { Product } from '../data/products';
 import ProductCard from './ProductCard';
-import SkeletonCard from './SkeletonCard';
 import CustomerReviewsGallery from './CustomerReviewsGallery';
 import Link from 'next/link';
 import { countPhrase, formatCount } from '../lib/text';
@@ -64,106 +63,29 @@ export default function HomeContent({
     return c ? `/shop/${c.slug}` : `/shop?section=${sectionId}`;
   };
 
-  // Seeded from the server component (app/page.tsx) so Google's crawler gets
-  // the real catalog on the first HTML response instead of the hardcoded
-  // mock placeholders — the useEffects below still re-fetch client-side on
-  // top of these, unchanged from before, so behavior stays identical once
-  // JS has hydrated.
-  const [products, setProducts] = useState<Product[]>(initialProducts?.length ? initialProducts : allProducts);
+  // Everything on this page comes from the server component (app/page.tsx) and
+  // is never re-fetched or replaced in the browser. It used to be re-fetched
+  // from /api/* on mount and swapped for placeholder products when that failed.
+  // robots.txt disallows /api, so Google's renderer could not make those calls:
+  // its rendered homepage lost 35 of its real product links and gained links to
+  // /product/1-10 (the placeholder ids). The server list is the source of truth,
+  // and the category filter below works on it (every product carries section_ids).
+  const products = initialProducts ?? [];
+  const bestsellers = initialBestsellers ?? [];
+  const recentlyAdded = initialRecentlyAdded ?? [];
+  const mockupLinks = initialMockupLinks ?? {};
+  const shopCategories = initialShopCategories?.length ? initialShopCategories : [{ id: '', name: 'All' }];
+  const moodSections = initialMoodSections ?? [];
   const [activeCategory, setActiveCategory] = useState('');
   const [sort, setSort] = useState('featured');
-  const [loading, setLoading] = useState(false);
-const [bestsellers, setBestsellers] = useState<Product[]>(initialBestsellers?.length ? initialBestsellers : bestsellerProducts);
-const [recentlyAdded, setRecentlyAdded] = useState<Product[]>(initialRecentlyAdded || []);
 
-const shopRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-const [mockupLinks, setMockupLinks] = useState<Record<string, string>>(initialMockupLinks || {});
-const [shopCategories, setShopCategories] = useState<Array<{ id: string; name: string }>>(initialShopCategories?.length ? initialShopCategories : [{ id: '', name: 'All' }]);
-const [moodSections, setMoodSections] = useState<Array<{ id: string; name: string; product_count: number }>>(initialMoodSections || []);
-
-useEffect(() => {
-    fetch('/api/settings?key=mockup_links')
-      .then(r => r.json())
-      .then(data => { if (data.value) setMockupLinks(data.value); });
-  }, []);
-
-useEffect(() => {
-    fetch('/api/sections')
-      .then(r => r.json())
-      .then(data => {
-        const sections = data.sections || [];
-        const opts = sections.map((s: any) => ({ id: s.id, name: s.name }));
-        setShopCategories([{ id: '', name: 'All' }, ...opts]);
-
-        const topSix = [...sections]
-          .sort((a: any, b: any) => (b.product_count || 0) - (a.product_count || 0))
-          .slice(0, 6);
-        setMoodSections(topSix);
-      })
-      .catch(() => {});
-  }, []);
+  const shopRef = useRef<HTMLDivElement>(null);
 
   const mockups = MOCKUP_DEFAULTS.map(m => ({ ...m, link: mockupLinks[m.key] || `/shop?room=${encodeURIComponent(m.roomFilter)}` }));
 
-useEffect(() => {
-    async function fetchBestsellers() {
-      try {
-        const [productsRes, orderRes] = await Promise.all([
-          fetch('/api/products?tag=Bestseller&limit=200'),
-          fetch('/api/settings?key=' + encodeURIComponent('tag_order:Bestseller')),
-        ]);
-        const data = await productsRes.json();
-        const orderData = await orderRes.json();
-        const list = data.products || [];
-        const savedOrder: string[] = Array.isArray(orderData.value) ? orderData.value : [];
+  const inCategory = activeCategory ? products.filter(p => (p.section_ids || []).includes(activeCategory)) : products;
 
-        if (list.length > 0) {
-          const byId = new Map(list.map((p: any) => [p.id, p]));
-          const ordered: any[] = [];
-          for (const id of savedOrder) {
-            if (byId.has(id)) { ordered.push(byId.get(id)); byId.delete(id); }
-          }
-          ordered.push(...byId.values());
-          setBestsellers(ordered.slice(0, 5));
-        }
-      } catch {
-        // keep mock fallback
-      }
-    }
-    fetchBestsellers();
-  }, []);
-  
-useEffect(() => {
-    async function fetchRecentlyAdded() {
-      try {
-        const res = await fetch('/api/products?tag=New&limit=6');
-        const data = await res.json();
-        if (data.products?.length > 0) setRecentlyAdded(data.products.slice(0, 6));
-      } catch {
-        // leave empty on failure
-      }
-    }
-    fetchRecentlyAdded();
-  }, []);
-
-  useEffect(() => {
-    async function fetch_() {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams();
-        if (activeCategory) params.set('section', activeCategory);
-        const res = await fetch(`/api/products?${params.toString()}&limit=1000`);
-        const data = await res.json();
-        if (data.products?.length > 0) setProducts(data.products);
-        else setProducts(allProducts);
-      } catch { setProducts(allProducts); }
-      finally { setLoading(false); }
-    }
-    fetch_();
-  }, [activeCategory]);
-
-  const sorted = [...products].sort((a, b) => {
+  const sorted = [...inCategory].sort((a, b) => {
     if (sort === 'price-asc') return a.price_digital - b.price_digital;
     if (sort === 'price-desc') return b.price_digital - a.price_digital;
     if (sort === 'name') return a.title.localeCompare(b.title);
@@ -408,7 +330,7 @@ useEffect(() => {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                {loading ? '…' : `Showing ${Math.min(HOME_PAGE_SIZE, sorted.length)} of ${sorted.length} prints`}
+                {`Showing ${Math.min(HOME_PAGE_SIZE, sorted.length)} of ${sorted.length} prints`}
               </span>
               <select value={sort} onChange={e => setSort(e.target.value)} style={{
                 background: 'var(--bg)', border: '0.5px solid var(--border)',
@@ -436,14 +358,11 @@ useEffect(() => {
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20, opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s' }}>
-            {loading
-              ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
-              : sorted.slice(0, HOME_PAGE_SIZE).map(p => <ProductCard key={p.id} product={p} />)
-            }
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
+            {sorted.slice(0, HOME_PAGE_SIZE).map(p => <ProductCard key={p.id} product={p} />)}
           </div>
 
-          {!loading && sorted.length === 0 && (
+          {sorted.length === 0 && (
             <div style={{ textAlign: 'center', padding: '60px 0' }}>
               <p style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 16 }}>No prints found in this category.</p>
               <button onClick={() => setActiveCategory('')} style={{
@@ -453,7 +372,7 @@ useEffect(() => {
             </div>
           )}
 
-          {!loading && sorted.length > HOME_PAGE_SIZE && (
+          {sorted.length > HOME_PAGE_SIZE && (
             <div style={{ textAlign: 'center', marginTop: 40 }}>
               <Link href={activeCategory ? sectionHref(activeCategory) : '/shop'} style={{
                 display: 'inline-block', background: 'var(--accent)', color: 'white',
